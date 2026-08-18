@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TISO — Live Control</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="control.css">
+</head>
+<body>
+<div class="app-onepage">
+    <header class="app-header">
+        <div class="brand-inline">
+            <img src="/favicon.svg" alt="TISO">
+            <div><strong>TISO LIVE CONTROL</strong><span>Vận hành phiên LIVE · Sự kiện · Game · OBS</span></div>
+        </div>
+        <div class="header-statuses">
+            <span class="status-chip"><span id="bridge-dot" class="dot ok"></span>Bridge <b id="bridge-port">—</b></span>
+            <span class="status-chip"><span id="unity-dot" class="dot"></span>Unity <b id="unity-mini">Offline</b></span>
+            <span class="status-chip"><span id="live-status-dot" class="dot"></span><b id="live-pill-text">Chưa LIVE</b></span>
+            <span class="status-chip"><span id="obs-dot" class="dot"></span>OBS <b id="obs-mini">Offline</b></span>
+            <span id="current-user" class="user-pill">@—</span>
+        </div>
+    </header>
+
+    <nav class="main-tabs" aria-label="Điều hướng TISO">
+        <button class="nav-btn active" type="button" data-tab="main"><span class="nav-index">01</span><span><b>Giao diện chính</b><small>LIVE · sự kiện · game · media</small></span></button>
+        <button class="nav-btn" type="button" data-tab="obs"><span class="nav-index">02</span><span><b>OBS</b><small>WebSocket · scene · capture</small></span></button>
+        <button class="nav-btn" type="button" data-tab="advanced"><span class="nav-index">03</span><span><b>Cấu hình nâng cao</b><small>Master JSON · Operator JSON</small></span></button>
+    </nav>
+
+    <main class="tab-workspace">
+        <section id="tab-main" class="panel active">
+            <div class="dashboard-overview" aria-label="Tổng quan vận hành">
+                <article class="overview-card live"><span>LIVE</span><strong id="overview-live">Chưa kết nối</strong><small id="overview-live-sub">Dán link để bắt đầu</small></article>
+                <article class="overview-card"><span>Sự kiện</span><strong id="overview-events">0</strong><small>Event đã nhận</small></article>
+                <article class="overview-card"><span>Người chơi</span><strong id="overview-players">0</strong><small>Đang có trong phiên</small></article>
+                <article class="overview-card"><span>Unity</span><strong id="overview-unity">Offline</strong><small id="overview-unity-sub">Chưa thấy game</small></article>
+            </div>
+            <div class="workspace-three-cols">
+                <!-- COLUMN 1: BASIC LIVE + MEDIA + RECENT EVENTS -->
+                <section class="workspace-column col-basic">
+                    <div class="column-title"><span>01</span><div><b>Cấu hình cơ bản</b><small>LIVE, nền, âm thanh và realtime</small></div></div>
+
+                    <article class="card">
+                        <div class="card-head"><div><p class="card-kicker">PHIÊN LIVE</p><h2>Kết nối TikTok</h2></div><span id="live-state-badge" class="state-badge">IDLE</span></div>
+                        <div class="field"><label>Nguồn dữ liệu</label><select id="live-provider"><option value="auto">Tự động — ưu tiên Direct</option><option value="tiktok">TikTok Direct</option><option value="tikfinity">TikFinity Desktop</option></select><small id="provider-help"></small></div>
+                        <div class="field"><label>URL phiên LIVE hoặc @username</label><input id="username" type="text" maxlength="240" placeholder="https://www.tiktok.com/@why.notstore/live" autocomplete="off"><small id="username-hint"></small></div>
+                        <div class="button-row"><button id="connect-live" class="btn primary grow">Kết nối LIVE</button><button id="disconnect-live" class="btn danger ghost">Ngắt</button></div>
+                        <div class="live-summary">
+                            <div><span>Trạng thái</span><b id="live-status-title">Sẵn sàng</b></div>
+                            <div><span>Provider</span><b id="live-detail-provider">—</b></div>
+                            <div><span>Người chơi</span><b id="live-detail-players">0</b></div>
+                            <div><span>Event</span><b id="live-detail-events">0</b></div>
+                        </div>
+                        <div id="live-status-message" class="inline-status">Chưa kết nối.</div>
+                        <span id="live-detail-user" class="hidden">@—</span>
+                        <span id="dash-live-user" class="hidden">@—</span>
+                        <span id="dash-live-provider" class="hidden"></span>
+                        <span id="dash-live-badge" class="hidden"></span>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><p class="card-kicker">ẢNH NỀN</p><h2>Nền sân</h2></div></div>
+                        <div class="background-preview-wrap compact-preview">
+                            <img id="game-background-preview" class="background-preview hidden" alt="Xem trước nền">
+                            <div id="game-background-empty" class="background-empty">Chưa chọn ảnh mới</div>
+                        </div>
+                        <div class="field"><label>Chọn ảnh nền</label><input id="game-background-file" type="file" accept="image/png,image/jpeg"><small>PNG/JPG. Khuyên dùng 1080×1920 hoặc ảnh đủ nét.</small></div>
+                        <button id="game-background-apply" class="btn primary full">Áp dụng nền</button>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><div><p class="card-kicker">ÂM THANH NỀN</p><h2>Nhạc / âm thanh</h2></div><span id="music-file-status" class="state-badge">CHƯA CHỌN</span></div>
+                        <div class="field"><label>Chọn file âm thanh</label><input id="game-music-file" type="file" accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg"><small>MP3 / WAV / OGG · file đã chọn sẽ được dùng làm nhạc nền chính.</small></div>
+                        <div class="volume-row">
+                            <label for="music-volume">Âm lượng</label>
+                            <input id="music-volume" type="range" min="0" max="100" step="1" value="35">
+                            <output id="music-volume-value">35%</output>
+                        </div>
+                        <div class="button-row"><button id="game-music-apply" class="btn primary grow">Áp dụng âm thanh</button><button id="music-save-volume" class="btn">Lưu âm lượng</button></div>
+                        <div id="music-current-file" class="inline-status">Chưa có file được chọn từ giao diện.</div>
+                    </article>
+
+                    <article class="card events-card">
+                        <div class="card-head">
+                            <div><p class="card-kicker">REALTIME</p><h2>Sự kiện gần đây</h2></div>
+                            <div class="filter-row" id="event-filters"><button class="filter-btn active" data-filter="all">All</button><button class="filter-btn" data-filter="chat">Chat</button><button class="filter-btn" data-filter="gift">Gift</button></div>
+                        </div>
+                        <div class="event-list compact-events" id="recent-events"><div class="empty">Chưa có sự kiện LIVE.</div></div>
+                    </article>
+                </section>
+
+                <!-- COLUMN 2: EVENT MAPPING -->
+                <section class="workspace-column col-events">
+                    <div class="column-title"><span>02</span><div><b>Thiết lập sự kiện</b><small>Chat / Gift → hành động trong game</small></div><button id="save-events" class="btn primary">Lưu & áp dụng</button></div>
+
+                    <article class="card">
+                        <div class="card-head"><div><p class="card-kicker">SPAWN POLICY</p><h2>Khi nào tạo nhân vật</h2></div></div>
+                        <div class="spawn-grid compact-spawn" id="spawn-events">
+                            <label class="check-card"><input type="checkbox" data-spawn="chat"><span><b>Chat</b><small>Ai chat sẽ lên sàn</small></span></label>
+                            <label class="check-card"><input type="checkbox" data-spawn="gift"><span><b>Gift</b><small>Người tặng quà</small></span></label>
+                            <label class="check-card"><input type="checkbox" data-spawn="follow"><span><b>Follow</b><small>Follower mới</small></span></label>
+                            <label class="check-card"><input type="checkbox" data-spawn="share"><span><b>Share</b><small>Người share</small></span></label>
+                            <label class="check-card"><input type="checkbox" data-spawn="member"><span><b>Member</b><small>Người vào LIVE</small></span></label>
+                            <label class="check-card"><input type="checkbox" data-spawn="like"><span><b>Like</b><small>Tải cao nếu đông</small></span></label>
+                        </div>
+                    </article>
+
+                    <article class="card rules-card" id="rules-chat">
+                        <div class="card-head"><div><p class="card-kicker">CHAT RULES</p><h2>Chat → hành động</h2></div><button id="add-chat-rule" class="btn small">+ Chat rule</button></div>
+                        <div class="hint-strip">Ví dụ: <b>hey</b> → Cánh / huy hiệu; <b>dance</b> → Nhảy. Nếu Chat được bật ở trên thì người chat vẫn xuất hiện dù không khớp rule.</div>
+                        <div id="chat-rules" class="rule-stack"></div>
+                    </article>
+
+                    <article class="card rules-card" id="rules-gift">
+                        <div class="card-head"><div><p class="card-kicker">GIFT RULES</p><h2>Gift → hành động</h2></div><button id="add-gift-rule" class="btn small primary">+ Thêm Gift rule</button></div>
+                        <div class="hint-strip gift-hint"><b>Luồng nhanh:</b> Chọn Gift → tạo rule → bấm <b>Cấu hình</b>. Mỗi rule chỉ hiển thị phần cần vận hành; chi tiết hành động được thu gọn trong cửa sổ riêng.</div>
+                        <div id="gift-rules" class="rule-stack"></div>
+                    </article>
+                </section>
+
+                <!-- COLUMN 3: GAME ONLY -->
+                <section class="workspace-column col-game">
+                    <div class="column-title"><span>03</span><div><b>Cấu hình game</b><small>Trạng thái Unity, hiển thị và điều khiển</small></div></div>
+
+                    <article class="card">
+                        <div class="card-head"><div><p class="card-kicker">UNITY GAME</p><h2>Điều khiển game</h2></div><span id="game-state-badge" class="state-badge">OFFLINE</span></div>
+                        <div class="metric-grid compact system-metrics"><article><span>FPS</span><strong id="game-fps">—</strong></article><article><span>Queue</span><strong id="game-queue">—</strong></article><article><span>Player</span><strong id="game-players">—</strong></article><article><span>Dropped</span><strong id="game-dropped">—</strong></article></div>
+                        <div class="control-grid control-grid-tight">
+                            <button class="toggle-btn" data-game-toggle="chroma"><span>Chroma</span><b>OFF</b></button>
+                            <button class="toggle-btn" data-game-toggle="hud"><span>HUD</span><b>OFF</b></button>
+                            <button class="toggle-btn" data-game-toggle="feed"><span>Text sự kiện</span><b>OFF</b></button>
+                            <button class="toggle-btn" data-game-toggle="controls"><span>Control game</span><b>OFF</b></button>
+                            <button class="toggle-btn" data-game-toggle="fullscreen"><span>Fullscreen</span><b>OFF</b></button>
+                        </div>
+                        <div class="button-row"><button id="reset-game" class="btn danger">Reset game</button><button class="btn" data-demo="30">Demo 30</button><button class="btn" data-demo="100">Demo 100</button><button id="stop-demo" class="btn danger ghost">Dừng demo</button></div>
+                        <div class="manual-event"><label>Dancer #</label><input id="demo-user-index" type="number" min="1" max="400" value="1"><button class="btn small" data-demo-action="dance">Dance</button><button class="btn small" data-demo-action="jump">Jump</button><button class="btn small" data-demo-action="gift" data-value="100">Gift 100</button></div>
+                        <div id="performance-warning" class="notice warning hidden"></div>
+                        <span id="metric-fps" class="hidden">—</span><span id="metric-queue" class="hidden">—</span><span id="metric-dropped" class="hidden">0</span><span id="metric-players" class="hidden">0</span><span id="metric-chats" class="hidden">0</span><span id="metric-gifts" class="hidden">0</span><span id="metric-diamonds" class="hidden">0</span><span id="metric-rate" class="hidden">0</span>
+                        <span id="dash-unity-badge" class="hidden"></span><span id="dash-unity-count" class="hidden">0</span><span id="dash-unity-detail" class="hidden"></span><span id="dash-bridge-badge" class="hidden"></span><span id="dash-bridge" class="hidden"></span>
+                    </article>
+
+                    <article class="card game-guide-card">
+                        <div class="card-head"><div><p class="card-kicker">LUỒNG VẬN HÀNH</p><h2>Trạng thái nhanh</h2></div></div>
+                        <div class="status-flow">
+                            <div><span>1</span><p><b>Kết nối LIVE</b><small>Dán link phiên LIVE ở cột trái.</small></p></div>
+                            <div><span>2</span><p><b>Thiết lập sự kiện</b><small>Chat/Gift được map sang hành động game.</small></p></div>
+                            <div><span>3</span><p><b>Game nhận event</b><small>Theo dõi FPS, queue và player tại đây.</small></p></div>
+                            <div><span>4</span><p><b>OBS là tab riêng</b><small>Scene/capture không chiếm chỗ giao diện chính.</small></p></div>
+                        </div>
+                    </article>
+                </section>
+            </div>
+        </section>
+
+        <section id="tab-obs" class="panel">
+            <div class="section-banner">
+                <div><p class="card-kicker">OBS CONTROL</p><h1>OBS</h1><p>Kết nối WebSocket, quản lý scene/source và đưa cửa sổ TISO vào OBS.</p></div>
+                <span id="obs-state-badge" class="state-badge">OFFLINE</span>
+            </div>
+            <div class="obs-workspace">
+                <article class="card">
+                    <div class="card-head"><div><p class="card-kicker">OBS WEBSOCKET</p><h2>Kết nối OBS</h2></div></div>
+                    <div class="field-grid"><div class="field"><label>Địa chỉ OBS</label><input id="obs-host" value="127.0.0.1"></div><div class="field narrow"><label>Port</label><input id="obs-port" type="number" min="1" max="65535" value="4455"></div></div>
+                    <div class="field"><label>Mật khẩu</label><input id="obs-password" type="password" autocomplete="off" placeholder="OBS WebSocket password"><small>Được lưu cục bộ trong config TISO để lần chạy sau tự load lại.</small></div>
+                    <label class="switch-row"><input id="obs-auto-connect" type="checkbox" checked><span>Tự kết nối OBS khi chạy server</span></label>
+                    <div class="button-row"><button id="obs-connect" class="btn primary grow">Lưu & kết nối OBS</button><button id="obs-disconnect" class="btn danger ghost">Ngắt</button><button id="obs-refresh" class="btn">Làm mới</button></div>
+                    <div class="system-detail-grid"><div><span>OBS</span><b id="obs-status-title">Chưa kết nối</b></div><div><span>Version</span><b id="obs-version">—</b></div><div><span>WS</span><b id="obs-ws-version">—</b></div><div><span>Stream</span><b id="obs-streaming">—</b></div></div>
+                    <span id="obs-current-scene" class="hidden">—</span><span id="dash-obs-badge" class="hidden"></span><span id="dash-obs-scene" class="hidden"></span><span id="dash-obs-stream" class="hidden"></span>
+                </article>
+
+                <article class="card">
+                    <div class="card-head"><div><p class="card-kicker">SCENE / SOURCE</p><h2>Cảnh OBS</h2></div></div>
+                    <div class="field"><label>Cảnh</label><select id="obs-scene"><option value="">— Chưa có scene —</option></select></div>
+                    <div class="button-row"><button id="obs-set-scene" class="btn primary grow">Chuyển cảnh</button><button id="obs-load-sources" class="btn">Tải source</button></div>
+                    <div id="obs-sources" class="source-list"><div class="empty">Kết nối OBS để lấy scene/source.</div></div>
+                </article>
+
+                <article class="card">
+                    <div class="card-head"><div><p class="card-kicker">CAPTURE GAME</p><h2>Đưa TISO vào OBS</h2></div></div>
+                    <div class="field"><label>Chế độ</label><select id="obs-capture-mode"><option value="window">Window Capture — khuyên dùng</option><option value="game">Game Capture</option><option value="display">Display Capture</option></select></div>
+                    <div class="field-grid"><div class="field"><label>Tên source</label><input id="obs-source-name" value="TISO Game"></div><div class="field"><label>File exe</label><input id="obs-executable" value="TISO.exe"></div></div>
+                    <div class="field"><label>Tiêu đề cửa sổ</label><input id="obs-window-title" value="TISO"></div>
+                    <button id="obs-capture-game" class="btn primary full">Thêm / cập nhật TISO trong scene</button>
+                </article>
+            </div>
+        </section>
+
+        <section id="tab-advanced" class="panel">
+            <div class="section-banner">
+                <div><p class="card-kicker">SYSTEM CONFIG</p><h1>Cấu hình nâng cao</h1><p>Chỉ dùng khi cần chỉnh trực tiếp cấu hình JSON. Các thiết lập vận hành thường ngày đã nằm ở giao diện chính và tab OBS.</p></div>
+            </div>
+            <div class="advanced-workspace">
+                <article class="card">
+                    <div class="card-head"><div><p class="card-kicker">MASTER.JSON</p><h2>Action rules</h2></div><button id="save-master-json" class="btn primary small">Lưu Master</button></div>
+                    <textarea id="master-json" class="json-editor advanced-json" spellcheck="false"></textarea>
+                </article>
+                <article class="card">
+                    <div class="card-head"><div><p class="card-kicker">OPERATOR.JSON</p><h2>Runtime config</h2></div><button id="save-operator-json" class="btn primary small">Lưu Operator</button></div>
+                    <textarea id="operator-json" class="json-editor advanced-json" spellcheck="false"></textarea>
+                </article>
+            </div>
+        </section>
+    </main>
+</div>
+
+<dialog id="gift-rule-dialog" class="gift-rule-dialog">
+    <form method="dialog" class="gift-rule-shell">
+        <div class="gift-dialog-head">
+            <div><p class="card-kicker">THÊM GIFT RULE</p><h2>Chọn Gift từ LIVE</h2><p>Chọn Gift cần dùng. Rule sẽ được tạo gọn trên dashboard và phần hành động sẽ mở ở bước cấu hình tiếp theo.</p></div>
+            <button id="gift-dialog-close" class="dialog-close" value="cancel" aria-label="Đóng">×</button>
+        </div>
+        <div id="gift-catalog" class="gift-catalog gift-picker"><div class="empty">Chưa nhận gift thật.</div></div>
+        <div class="gift-dialog-footer">
+            <div><b>Chưa thấy Gift cần chọn?</b><small>Có thể thêm rule thủ công rồi nhập Gift / alias và Gift ID sau.</small></div>
+            <button id="add-manual-gift-rule" type="button" class="btn">+ Gift thủ công</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="gift-action-dialog" class="gift-action-dialog">
+    <form method="dialog" class="gift-action-shell">
+        <div class="gift-dialog-head">
+            <div>
+                <p class="card-kicker">CẤU HÌNH HÀNH ĐỘNG</p>
+                <h2 id="gift-action-title">Gift → hành động</h2>
+                <p id="gift-action-meta">Thiết lập action cho Gift đã chọn.</p>
+            </div>
+            <button class="dialog-close" value="cancel" aria-label="Đóng">×</button>
+        </div>
+        <div class="gift-action-body">
+            <div class="gift-binding-grid">
+                <div class="field"><label>Gift / alias</label><input id="gift-action-trigger" type="text" maxlength="160" placeholder="Rose / Hoa hồng"></div>
+                <div class="field"><label>Gift ID</label><input id="gift-action-id" type="text" maxlength="40" placeholder="5655"></div>
+            </div>
+            <div class="action-primary-field">
+                <label for="gift-action-key">Action</label>
+                <input id="gift-action-key" type="text" maxlength="80" placeholder="Ví dụ: dance hoặc tên action riêng của bạn" autocomplete="off">
+                <small>Nhập action key mà game của bạn hỗ trợ. Không bị giới hạn bởi danh sách có sẵn.</small>
+                <div class="action-suggestions" aria-label="Gợi ý action nhanh">
+                    <button type="button" data-action-suggestion="dance">dance</button>
+                    <button type="button" data-action-suggestion="jump">jump</button>
+                    <button type="button" data-action-suggestion="fireworks">fireworks</button>
+                </div>
+            </div>
+            <details class="action-advanced">
+                <summary>Tùy chọn nâng cao</summary>
+                <div class="action-advanced-grid">
+                    <div class="field"><label>Thời lượng</label><div class="input-unit"><input id="gift-action-duration" type="number" min="0" max="300" step="0.5" value="3"><span>giây</span></div></div>
+                    <div class="field"><label>Nhãn hiển thị</label><input id="gift-action-label" type="text" maxlength="120" placeholder="Tùy chọn"></div>
+                    <div class="field"><label>Điều kiện trang trí</label><select id="gift-action-decoration"><option value="always">Không cần Top</option><option value="top_only">Chỉ khi đang Top 1–3</option></select></div>
+                </div>
+            </details>
+        </div>
+        <div class="gift-action-footer">
+            <button type="button" id="gift-action-cancel" class="btn">Hủy</button>
+            <button type="button" id="gift-action-save" class="btn primary">Lưu cấu hình</button>
+        </div>
+    </form>
+</dialog>
+
+<div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+<script src="js/normalize-username.js"></script>
+<script src="control.js"></script>
+</body>
+</html>

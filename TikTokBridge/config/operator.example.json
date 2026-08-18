@@ -1,0 +1,22 @@
+{
+  "spawnEvents": {
+    "chat": true,
+    "gift": true,
+    "like": false,
+    "follow": true,
+    "share": true,
+    "member": false
+  },
+  "obs": {
+    "host": "127.0.0.1",
+    "port": 4455,
+    "password": "",
+    "autoConnect": true
+  },
+  "media": {
+    "musicVolume": 0.57,
+    "backgroundFile": "nenamphu.png",
+    "audioFile": ""
+  },
+  "recentEventLimit": 200
+}
