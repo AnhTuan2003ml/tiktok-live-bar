@@ -55,8 +55,13 @@ if not exist "%BRIDGE_DIR%\node_modules\express\package.json" (
 )
 
 pushd "%BRIDGE_DIR%"
-for /f "usebackq delims=" %%p in (`"%LICENSE_NODE%" -e "const e=require('./src/config/environment');e.loadEnvironmentFile();process.stdout.write(String(e.getServerSettings().port))"`) do set "BRIDGE_PORT=%%p"
+"%LICENSE_NODE%" -e "const e=require('./src/config/environment');e.loadEnvironmentFile();process.stdout.write(String(e.getServerSettings().port))" > "%TEMP%\port_tiso.txt" 2>nul
 popd
+if exist "%TEMP%\port_tiso.txt" (
+    set /p BRIDGE_PORT=<"%TEMP%\port_tiso.txt"
+    del /q "%TEMP%\port_tiso.txt" 2>nul
+)
+if not defined BRIDGE_PORT set "BRIDGE_PORT=3100"
 set "CONTROL_URL=http://127.0.0.1:%BRIDGE_PORT%/control.html"
 set "ACTIVATE_URL=http://127.0.0.1:%BRIDGE_PORT%/activate.html"
 
