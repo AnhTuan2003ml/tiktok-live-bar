@@ -83,3 +83,17 @@ TikTokBridge/config/observed-gifts.json
 Library/
 Logs/
 UserSettings/
+
+# ── Secret nhung cho ban dong goi ────────────
+TikTokBridge/src/license/embedded-env.js
+TikTokBridge/config/.license.dat
+TikTokBridge/config/.activation.dat
+
+# ── Khoa ky license Ed25519 — TUYET DOI khong commit ──
+secrets/
+*.pem
+
+# ── Python build artifacts (trinh cai dat) ──
+__pycache__/
+*.pyc
+*.spec

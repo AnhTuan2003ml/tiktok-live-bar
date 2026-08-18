@@ -31,6 +31,8 @@
             <span class="status-chip"><span id="bridge-dot" class="dot"></span>Bridge <b id="bridge-port">—</b></span>
             <span class="status-chip"><span id="unity-dot" class="dot"></span>Unity <b id="unity-mini">Offline</b></span>
             <span class="status-chip"><span id="obs-dot" class="dot"></span>OBS <b id="obs-mini">Offline</b></span>
+            <span id="license-chip" class="status-chip license-chip"><span id="license-dot" class="dot"></span><b id="license-countdown">—</b></span>
+            <button id="version-chip" class="status-chip version-chip" type="button" title="Phiên bản">v—</button>
             <span id="current-user" class="user-pill">@—</span>
         </div>
     </header>
@@ -366,6 +368,22 @@
             <div class="section-banner">
                 <div><h1>Cấu hình nâng cao</h1><p>Chỉ dùng khi cần chỉnh trực tiếp cấu hình JSON. Thiết lập vận hành thường ngày đã nằm ở Dashboard và tab OBS.</p></div>
             </div>
+            <article class="card update-card">
+                <div class="card-head">
+                    <div><h2>Phiên bản &amp; cập nhật</h2><p id="update-current">Đang đọc phiên bản…</p></div>
+                    <span id="update-badge" class="state-badge">CHƯA KIỂM TRA</span>
+                </div>
+                <div class="card-body">
+                    <div id="update-info" class="inline-status">Bấm "Kiểm tra bản mới" để hỏi GitHub xem đã có bản phát hành nào mới hơn chưa.</div>
+                    <div id="update-notes" class="update-notes hidden"></div>
+                    <div class="button-row">
+                        <button id="update-check" class="btn grow">Kiểm tra bản mới</button>
+                        <button id="update-apply" class="btn primary hidden">Cập nhật ngay</button>
+                        <a id="update-link" class="btn ghost hidden" href="#" target="_blank" rel="noopener">Xem ghi chú phát hành</a>
+                    </div>
+                </div>
+            </article>
+
             <div class="advanced-workspace">
                 <article class="card">
                     <div class="card-head"><h2>Master.json — action rules</h2><button id="save-master-json" class="btn primary small">Lưu Master</button></div>
@@ -397,8 +415,47 @@
     </form>
 </dialog>
 
+<div id="license-gate" class="license-gate hidden" role="dialog" aria-modal="true" aria-labelledby="license-gate-title">
+    <div class="license-card">
+        <div class="license-head">
+            <img src="/favicon.svg" alt="TISO">
+            <div>
+                <h2 id="license-gate-title">Kích hoạt bản quyền TISO</h2>
+                <p id="license-message">Chưa kích hoạt bản quyền.</p>
+            </div>
+        </div>
+
+        <div class="license-device">
+            <div><span>Thiết bị</span><b id="license-device">—</b></div>
+            <div><span>Địa chỉ MAC</span><b id="license-mac">—</b></div>
+        </div>
+
+        <section class="license-step">
+            <div class="license-step-head"><span class="license-step-index">1</span><b>Chọn gói và gửi mã</b></div>
+            <div class="field">
+                <label for="license-duration">Gói thời hạn</label>
+                <select id="license-duration"></select>
+            </div>
+            <button id="license-request" class="btn primary full">Gửi mã về email người bán</button>
+            <p id="license-request-note" class="license-note">Mã được gửi tới hộp thư quản trị, không hiển thị tại đây. Hãy liên hệ người bán để nhận mã.</p>
+        </section>
+
+        <section class="license-step">
+            <div class="license-step-head"><span class="license-step-index">2</span><b>Nhập mã kích hoạt</b></div>
+            <div class="field">
+                <label for="license-key">Mã kích hoạt</label>
+                <input id="license-key" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX">
+            </div>
+            <button id="license-activate" class="btn primary full" disabled>Kích hoạt</button>
+            <p id="license-activate-note" class="license-note"></p>
+        </section>
+    </div>
+</div>
+
 <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
 <script src="js/normalize-username.js"></script>
+<script src="js/license.js"></script>
+<script src="js/update.js"></script>
 <script src="control.js"></script>
 </body>
 </html>

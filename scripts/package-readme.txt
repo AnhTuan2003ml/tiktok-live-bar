@@ -16,6 +16,14 @@ ode.exe  Node.js di kem, may dich khong can cai Node
 - LiveAssets\       Anh nen san khau
 - Documentation\    Tai lieu huong dan
 
+KICH HOAT BAN QUYEN (lam mot lan tren moi may)
+1. Control Panel se hien khung "Kich hoat ban quyen TISO" va khoa chuc nang ket noi LIVE.
+2. Doc "Thiet bi" va "Dia chi MAC" hien trong khung cho nguoi ban.
+3. Chon goi thoi han -> bam "Gui ma ve email nguoi ban".
+   Ma KHONG hien tren man hinh may khach; no duoc gui thang toi hop thu nguoi ban.
+4. Lien he nguoi ban, thanh toan, nhan ma va nhap vao o "Ma kich hoat" -> bam "Kich hoat".
+5. Ma chi song 5 phut va chi dung duoc tren dung may da sinh ra no. Het gio thi bam "Gui ma" lai.
+
 CAN LAM TREN MAY MOI
 - OBS: mo tab OBS trong Control Panel, nhap dia chi 127.0.0.1, port 4455 va mat khau
   OBS WebSocket cua may do (mat khau khong duoc mang theo trong goi).

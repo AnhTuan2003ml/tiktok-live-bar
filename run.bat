@@ -14,6 +14,8 @@ if exist "%PORTABLE_NODE%" (
     set "PATH=%ROOT%runtime;%PATH%"
     set "USE_PORTABLE_NODE=1"
 )
+set "LICENSE_NODE=node"
+if defined USE_PORTABLE_NODE set "LICENSE_NODE=%PORTABLE_NODE%"
 
 echo =======================================
 echo     KHOI DONG TISO LIVE
@@ -35,7 +37,7 @@ if not exist "%BRIDGE_DIR%\package.json" (
 )
 
 if not exist "%BRIDGE_DIR%\node_modules\express\package.json" (
-    echo [1/3] Dang cai dat thu vien Node.js...
+    echo [1/4] Dang cai dat thu vien Node.js...
     pushd "%BRIDGE_DIR%"
     if exist package-lock.json (
         call npm ci
@@ -49,18 +51,19 @@ if not exist "%BRIDGE_DIR%\node_modules\express\package.json" (
     )
     popd
 ) else (
-    echo [1/3] Thu vien Node.js da san sang.
+    echo [1/4] Thu vien Node.js da san sang.
 )
 
 pushd "%BRIDGE_DIR%"
-for /f "usebackq delims=" %%p in (`node -e "const e=require('./src/config/environment');e.loadEnvironmentFile();process.stdout.write(String(e.getServerSettings().port))"`) do set "BRIDGE_PORT=%%p"
+for /f "usebackq delims=" %%p in (`"%LICENSE_NODE%" -e "const e=require('./src/config/environment');e.loadEnvironmentFile();process.stdout.write(String(e.getServerSettings().port))"`) do set "BRIDGE_PORT=%%p"
 popd
 set "CONTROL_URL=http://127.0.0.1:%BRIDGE_PORT%/control.html"
+set "ACTIVATE_URL=http://127.0.0.1:%BRIDGE_PORT%/activate.html"
 
 call :bridge_is_ready
 if defined BRIDGE_READY (
-    echo [2/3] TikTok Bridge dang chay san tren cong %BRIDGE_PORT%.
-    goto :launch_game
+    echo [2/4] TikTok Bridge dang chay san tren cong %BRIDGE_PORT%.
+    goto :check_license
 )
 
 set "PORT_PID="
@@ -72,7 +75,7 @@ if defined PORT_PID (
     goto :failed
 )
 
-echo [2/3] Dang khoi dong TikTok Bridge...
+echo [2/4] Dang khoi dong TikTok Bridge...
 if defined USE_PORTABLE_NODE (
     start "TikTok Bridge" /D "%BRIDGE_DIR%" cmd /k ""%PORTABLE_NODE%" server.js"
 ) else (
@@ -92,8 +95,37 @@ if not defined BRIDGE_READY (
     goto :failed
 )
 
+:check_license
+echo [3/4] Dang kiem tra ban quyen...
+call :is_licensed
+if "%LICENSED%"=="1" (
+    echo       Ban quyen hop le.
+    goto :launch_game
+)
+
+echo.
+echo ==========================================================
+echo   CHUA KICH HOAT BAN QUYEN
+echo ==========================================================
+echo   Dang mo giao dien kich hoat. Hay chon goi thoi han,
+echo   bam "Gui ma" roi lien he nguoi ban de nhan ma kich hoat.
+echo   Kich hoat xong, Game se tu khoi dong.
+echo   ^(Dong cua so nay neu muon huy.^)
+echo.
+if exist "%CONTROL_EDGE_SCRIPT%" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%CONTROL_EDGE_SCRIPT%" -Url "%ACTIVATE_URL%"
+) else (
+    start "" msedge.exe --app="%ACTIVATE_URL%" --start-maximized
+)
+
+:wait_activation
+ping 127.0.0.1 -n 6 >nul
+call :is_licensed
+if not "%LICENSED%"=="1" goto :wait_activation
+echo   Da kich hoat thanh cong.
+
 :launch_game
-echo [3/3] Dang khoi dong Game tren cong %BRIDGE_PORT%...
+echo [4/4] Dang khoi dong Game tren cong %BRIDGE_PORT%...
 if exist "%ROOT%Build\TISO.exe" (
     start "" "%ROOT%Build\TISO.exe" -bridgePort %BRIDGE_PORT%
 ) else if exist "%ROOT%Build\TIKTOK_LIVE_BAR.exe" (
@@ -111,6 +143,15 @@ if exist "%CONTROL_EDGE_SCRIPT%" (
 )
 echo.
 echo Da khoi dong. Control Panel Edge: %CONTROL_URL%
+exit /b 0
+
+:is_licensed
+REM Dat LICENSED=1 khi ban quyen hop le, nguoc lai de trong.
+set "LICENSED="
+pushd "%BRIDGE_DIR%"
+"%LICENSE_NODE%" check-license.js
+if not errorlevel 1 set "LICENSED=1"
+popd
 exit /b 0
 
 :bridge_is_ready

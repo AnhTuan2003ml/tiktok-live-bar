@@ -41,10 +41,24 @@ rewriteJson('operator.json', config => ({
 
 rewriteJson('observed-gifts.json', config => (Array.isArray(config) ? [] : {}));
 
-// Log va file tam khong thuoc ve goi phat hanh.
-for (const relative of ['TikTokBridge/server.log', 'build_log.txt']) {
+// Trang thai ban quyen gan voi tung may - khong duoc di theo goi phat hanh.
+for (const relative of [
+    'TikTokBridge/config/.license.dat',
+    'TikTokBridge/config/.activation.dat',
+    'TikTokBridge/server.log',
+    'build_log.txt'
+]) {
     const target = path.join(stageDir, relative);
-    if (fs.existsSync(target)) fs.rmSync(target, { force: true });
+    if (!fs.existsSync(target)) continue;
+    try {
+        if (process.platform === 'win32') {
+            // File license duoc dat thuoc tinh an/he thong, phai go truoc khi xoa.
+            require('node:child_process').execFileSync('attrib', ['-h', '-s', target], { windowsHide: true });
+        }
+    } catch {
+        // Khong go duoc thuoc tinh thi van thu xoa.
+    }
+    fs.rmSync(target, { force: true });
 }
 
 console.log('      Da xoa mat khau OBS va du lieu phien cu khoi goi.');

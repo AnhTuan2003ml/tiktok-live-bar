@@ -928,6 +928,155 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 .gift-dialog-footer small { display: block; color: var(--faint); font-size: 11px; }
 
 /* ============================================================
+   Phien ban & cap nhat
+   ============================================================ */
+#tab-advanced.panel.active { display: flex; flex-direction: column; gap: var(--gap); }
+.update-card { flex: none; }
+.update-card .card-body { gap: 10px; }
+.update-notes {
+    max-height: 168px;
+    overflow-y: auto;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+.inline-status.update-ready {
+    height: auto;
+    white-space: normal;
+    border-color: rgba(52, 211, 153, .4);
+    background: rgba(52, 211, 153, .08);
+    color: #b6f0d5;
+}
+.inline-status.update-error {
+    height: auto;
+    white-space: normal;
+    border-color: rgba(247, 201, 72, .4);
+    background: rgba(247, 201, 72, .07);
+    color: #ffe4a3;
+}
+
+/* ============================================================
+   Khung kich hoat ban quyen
+   ============================================================ */
+.license-chip.warn { border-color: rgba(247, 201, 72, .45); background: rgba(247, 201, 72, .1); }
+.version-chip {
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.version-chip:hover { border-color: var(--line-strong); color: var(--text); }
+.version-chip.has-update {
+    border-color: rgba(52, 211, 153, .5);
+    background: rgba(52, 211, 153, .14);
+    color: var(--green);
+    font-weight: 700;
+    animation: version-pulse 2s ease-in-out infinite;
+}
+@keyframes version-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+    50% { box-shadow: 0 0 0 3px rgba(52, 211, 153, .18); }
+}
+.license-chip.warn b { color: var(--yellow); }
+
+body.license-locked { overflow: hidden; }
+
+.license-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(4, 6, 12, .82);
+    backdrop-filter: blur(6px);
+}
+.license-card {
+    width: min(460px, 100%);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px;
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+}
+.license-head { display: flex; align-items: flex-start; gap: 12px; }
+.license-head img { width: 38px; height: 38px; border-radius: 10px; }
+.license-head h2 { font-size: 16px; font-weight: 650; }
+.license-head p { margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+.license-device { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.license-device > div {
+    padding: 8px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    min-width: 0;
+}
+.license-device span {
+    display: block;
+    height: 13px;
+    line-height: 13px;
+    color: var(--faint);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.license-device b {
+    display: block;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.license-step {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--bg);
+}
+.license-step-head { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.license-step-index {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+.license-note { color: var(--faint); font-size: 11.5px; line-height: 1.5; }
+.license-note.ok { color: var(--green); }
+.license-note.err { color: var(--red); }
+
+#license-key {
+    height: 44px;
+    font-family: var(--mono);
+    font-size: 18px;
+    letter-spacing: .18em;
+    text-align: center;
+}
+
+@media (max-width: 520px) {
+    .license-device { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
    Toast
    ============================================================ */
 .toast-stack {

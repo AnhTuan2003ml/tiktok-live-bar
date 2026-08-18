@@ -82,9 +82,9 @@ robocopy "%BRIDGE_DIR%" "%STAGE%\TikTokBridge" /E /NFL /NDL /NJH /NJS /NP /XJ ^
     /XD "test" ".git" /XF ".env" "*.log" "*.tmp.js" >nul
 if errorlevel 8 goto :copy_failed
 
-for %%D in (DJ_MUSIC DJ_VIDEO LiveAssets Documentation scripts) do (
+for %%D in (DJ_MUSIC DJ_VIDEO LiveAssets Documentation scripts installer) do (
     if exist "%ROOT%%%D" (
-        robocopy "%ROOT%%%D" "%STAGE%\%%D" /E /NFL /NDL /NJH /NJS /NP /XJ >nul
+        robocopy "%ROOT%%%D" "%STAGE%\%%D" /E /NFL /NDL /NJH /NJS /NP /XJ /XD __pycache__ /XF *.py >nul
         if errorlevel 8 goto :copy_failed
     )
 )
@@ -98,10 +98,19 @@ if exist "%ROOT%scripts\package-readme.txt" copy /y "%ROOT%scripts\package-readm
 
 REM ---------- 5. Cau hinh sach cho may khac ----------
 echo [5/6] Dang lam sach cau hinh rieng tu...
-if exist "%BRIDGE_DIR%\.env.example" copy /y "%BRIDGE_DIR%\.env.example" "%STAGE%\TikTokBridge\.env" >nul
 node "%ROOT%scripts\sanitize-package-config.js" "%STAGE%"
 if errorlevel 1 (
     echo [LOI] Khong lam sach duoc cau hinh trong goi.
+    goto :failed
+)
+node "%ROOT%scripts\embed-env.js" "%STAGE%"
+if errorlevel 1 (
+    echo [LOI] Khong nhung duoc cau hinh ban quyen.
+    goto :failed
+)
+node "%ROOT%scripts\compile-protected.js" "%STAGE%"
+if errorlevel 1 (
+    echo [LOI] Khong bien dich duoc module ban quyen.
     goto :failed
 )
 

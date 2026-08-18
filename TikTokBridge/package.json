@@ -1,6 +1,6 @@
 {
   "name": "tiktoklivegame",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "TISO — TikTok Live Game 3D Bridge",
   "main": "server.js",
@@ -19,7 +19,9 @@
   },
   "type": "commonjs",
   "dependencies": {
+    "bytenode": "^1.6.0",
     "express": "^5.2.1",
+    "nodemailer": "^9.0.5",
     "three": "^0.180.0",
     "tiktok-live-connector": "^2.4.3",
     "ws": "^8.21.1"

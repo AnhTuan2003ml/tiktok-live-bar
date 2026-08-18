@@ -569,6 +569,10 @@ function handleSocketMessage(data) {
         case 'game_control_ack': toast(`Game: đã gửi lệnh ${data.command}.`, 'ok'); break;
         case 'obs_action': toast(data.message || 'OBS action', data.ok ? 'ok' : 'error'); break;
         case 'obs_audio_report': renderAudioReport(data); break;
+        case 'license_required':
+            toast(data.message || 'Cần kích hoạt bản quyền.', 'error');
+            window.TisoLicense?.refresh();
+            break;
         case 'error': toast(data.message || 'Có lỗi.', 'error'); break;
     }
 }

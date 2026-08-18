@@ -16,7 +16,7 @@ const { sanitizeOperatorConfig, shouldSpawnForEvent } = require('./src/config/op
 const { ObsClient, sanitizeObsEndpoint } = require('./src/obs/obs-client');
 const { normalizeTikTokUsername } = require('./public/js/normalize-username');
 
-loadEnvironmentFile();
+require('./src/license/secure-env').loadSecureEnvironment();
 
 const { normalizeTikFinityMessage } = require('./src/tiktok/normalize-tikfinity-event');
 const {
@@ -50,6 +50,9 @@ function loadLocalConfig(fileName) {
 const initialObservedGifts = loadLocalConfig('observed-gifts.json');
 const initialOperatorConfig = loadLocalConfig('operator.json');
 const { normalizeText, sanitizeMasterConfig, resolveMasterRule, applyRule, applyBuiltInChatCommand } = require('./src/master/rules');
+const licenseCore = require('./src/license/license');
+const licenseMailer = require('./src/license/mailer');
+const updater = require('./src/update/updater');
 const {
     sanitizeGameEvent,
     isLoopbackAddress,
@@ -159,7 +162,30 @@ app.use((req, res, next) => {
 });
 
 const staticOptions = { dotfiles: 'deny', fallthrough: true, etag: true, index: ['index.html'] };
-app.get('/', (_req, res) => res.redirect('/control.html'));
+
+// Cổng bản quyền đặt TRƯỚC static: máy chưa kích hoạt không tải nổi giao diện vận hành,
+// nên không thể lách bằng cách xoá lớp phủ trong DevTools.
+const LICENSED_PAGES = new Set(['/control.html', '/control.js']);
+
+app.get('/', (_req, res) => {
+    res.redirect(licenseCore.licenseStatus().active ? '/control.html' : '/activate.html');
+});
+
+app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const pathname = req.path;
+    const licensed = licenseCore.licenseStatus().active;
+
+    if (LICENSED_PAGES.has(pathname) && !licensed) {
+        return res.redirect('/activate.html');
+    }
+    // Đã kích hoạt rồi thì không cần ở lại trang kích hoạt nữa.
+    if (pathname === '/activate.html' && licensed) {
+        return res.redirect('/control.html');
+    }
+    return next();
+});
+
 app.use(express.static(publicDir, staticOptions));
 app.use('/assets', express.static(assetsDir, staticOptions));
 app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules', 'three', 'build'), staticOptions));
@@ -179,8 +205,68 @@ app.get('/api/music/current', async (_req, res) => {
     }
 });
 
+// ---------- Bản quyền ----------
+
+app.get('/api/license/status', (_req, res) => {
+    res.json(licenseCore.licenseStatus());
+});
+
+app.get('/api/license/options', (_req, res) => {
+    res.json({
+        durations: licenseCore.durationOptions(),
+        receivers: licenseMailer.receivers().map(licenseMailer.maskEmail),
+        mac: licenseCore.machineMac(),
+        device: licenseCore.deviceName(),
+        machine_tag: licenseCore.machineTag(),
+        valid_minutes: licenseCore.otpValidMinutes()
+    });
+});
+
+app.post('/api/license/request', express.json({ limit: '8kb' }), async (req, res) => {
+    try {
+        // Mã OTP đi thẳng sang tầng gửi mail, không lọt vào response hay log.
+        const { otp, label } = licenseCore.createActivationRequest(req.body?.duration_code);
+        const sent = await licenseMailer.sendActivationCode({
+            otp,
+            label,
+            mac: licenseCore.machineMac(),
+            device: licenseCore.deviceName()
+        });
+        return res.json({
+            ok: true,
+            label,
+            sent_to: sent.map(licenseMailer.maskEmail),
+            valid_minutes: licenseCore.otpValidMinutes()
+        });
+    } catch (error) {
+        console.error('[LICENSE] Gửi mã thất bại:', error.message);
+        return res.status(400).json({ ok: false, error: error.message });
+    }
+});
+
+app.post('/api/license/activate', express.json({ limit: '8kb' }), (req, res) => {
+    const result = licenseCore.activate(req.body?.key);
+    if (result.ok === false) return res.status(400).json(result);
+    return res.json(result);
+});
+
+// ---------- Cập nhật ----------
+
+app.get('/api/update/check', async (req, res) => {
+    const force = String(req.query.force || '') === '1';
+    res.json(await updater.checkForUpdate({ force }));
+});
+
+app.post('/api/update/apply', express.json({ limit: '4kb' }), (_req, res) => {
+    try {
+        return res.json(updater.startUpdate());
+    } catch (error) {
+        return res.status(400).json({ ok: false, error: error.message });
+    }
+});
+
 app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', appId: 'tiso-bridge', version: '1.0.0' });
+    res.json({ status: 'ok', appId: 'tiso-bridge', version: updater.currentVersion() });
 });
 
 app.post('/api/background', express.raw({ type: 'image/png', limit: '20mb' }), async (req, res) => {
@@ -207,7 +293,7 @@ app.post('/api/background', express.raw({ type: 'image/png', limit: '20mb' }), a
             media: { ...operatorConfig.media, backgroundFile: 'nenamphu.png' }
         });
         await writeJsonAtomic(operatorConfigPath, operatorConfig);
-        broadcastRole('control', { type: 'operator_config', operator: operatorConfig });
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
         broadcastRole('overlay', { type: 'game_control', command: 'background_reload', boolValue: true });
         broadcastRole('control', { type: 'background_updated', file: 'LiveAssets/nenamphu.png', bytes: buffer.length });
         return res.json({ ok: true, message: 'Đã cập nhật nền và gửi lệnh reload cho game.', bytes: buffer.length });
@@ -244,7 +330,7 @@ app.post('/api/music', express.raw({ type: 'application/octet-stream', limit: '8
             media: { ...operatorConfig.media, audioFile: fileName }
         });
         await writeJsonAtomic(operatorConfigPath, operatorConfig);
-        broadcastRole('control', { type: 'operator_config', operator: operatorConfig });
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
         broadcastRole('overlay', { type: 'game_control', command: 'music_reload', boolValue: true });
         return res.json({ ok: true, file: fileName, bytes: buffer.length, message: 'Đã cập nhật âm thanh nền.' });
     } catch (error) {
@@ -280,6 +366,12 @@ function broadcast(data) {
         }
         client.send(payload);
     }
+}
+
+// Mật khẩu OBS không được rời khỏi máy chủ: Control Panel có ô nhập riêng,
+// còn ô Operator.json chỉ nên thấy chuỗi rỗng.
+function publicOperatorConfig(config = operatorConfig) {
+    return { ...config, obs: { ...(config.obs || {}), password: '' } };
 }
 
 function broadcastRole(role, data) {
@@ -1045,7 +1137,7 @@ async function handleClientMessage(ws, message) {
         send(ws, { type: 'metrics', ...metrics, players: sessionPlayers.size, eventsPerSecond: currentEventRate() });
         if (ws.role === 'control') {
             send(ws, { type: 'master_config', master: masterConfig });
-            send(ws, { type: 'operator_config', operator: operatorConfig });
+            send(ws, { type: 'operator_config', operator: publicOperatorConfig() });
             send(ws, giftCatalogMessage());
             send(ws, { type: 'recent_events', events: recentEvents });
             send(ws, { type: 'obs_status', ...obsClient.getStatus() });
@@ -1072,6 +1164,14 @@ async function handleClientMessage(ws, message) {
     if (controlOnly && ws.role !== 'control') {
         return send(ws, { type: 'error', message: 'Lệnh này chỉ dành cho Control Panel.' });
     }
+
+    // Mọi lệnh vận hành đều là chức năng tính phí. Kiểm tra ở server, không tin giao diện.
+    if ((controlOnly || operatorOnly) && !licenseCore.licenseStatus().active) {
+        return send(ws, {
+            type: 'license_required',
+            message: 'Cần kích hoạt bản quyền để dùng chức năng này. Hãy gửi mã và liên hệ người bán.'
+        });
+    }
     if (operatorOnly && ws.role !== 'control' && !ws.nativeClient) {
         return send(ws, { type: 'error', message: 'Client không có quyền điều khiển.' });
     }
@@ -1086,9 +1186,18 @@ async function handleClientMessage(ws, message) {
 
 
     if (message.type === 'operator_save') {
-        operatorConfig = sanitizeOperatorConfig(message.operator);
+        // Ô Operator.json không hiển thị mật khẩu, nên gửi lên rỗng nghĩa là "giữ nguyên".
+        const incoming = message.operator || {};
+        const keepPassword = !String(incoming.obs?.password || '').trim();
+        operatorConfig = sanitizeOperatorConfig({
+            ...incoming,
+            obs: {
+                ...(incoming.obs || {}),
+                password: keepPassword ? (operatorConfig.obs?.password || '') : incoming.obs.password
+            }
+        });
         await writeJsonAtomic(operatorConfigPath, operatorConfig);
-        broadcastRole('control', { type: 'operator_config', operator: operatorConfig });
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
         broadcastMetrics();
         return send(ws, { type: 'operator_saved', message: 'Đã lưu cấu hình vận hành.' });
     }
@@ -1102,7 +1211,7 @@ async function handleClientMessage(ws, message) {
         await fs.mkdir(djMusicDir, { recursive: true });
         await fs.writeFile(musicVolumePath, String(operatorConfig.media.musicVolume), 'utf8');
         await writeJsonAtomic(operatorConfigPath, operatorConfig);
-        broadcastRole('control', { type: 'operator_config', operator: operatorConfig });
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
         broadcastRole('overlay', {
             type: 'game_control', command: 'music_volume', floatValue: operatorConfig.media.musicVolume
         });
@@ -1157,7 +1266,7 @@ async function handleClientMessage(ws, message) {
         const autoConnect = message.autoConnect !== false;
         operatorConfig = sanitizeOperatorConfig({ ...operatorConfig, obs: { ...endpoint, password, autoConnect } });
         await writeJsonAtomic(operatorConfigPath, operatorConfig);
-        broadcastRole('control', { type: 'operator_config', operator: operatorConfig });
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
         try {
             await obsClient.connect({ ...endpoint, password });
             return send(ws, { type: 'obs_action', ok: true, message: 'Đã kết nối OBS.' });
