@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -15,6 +15,12 @@ namespace TikTokLiveGame
         };
 
         private static readonly Dictionary<string, Sprite[]> Cache = new();
+
+        // Kiểm tra tên nhân vật hợp lệ và lấy khung hình cho đúng nhân vật đó
+        // (dùng để khôi phục nhân vật khách đã đổi trong phiên).
+        public static bool Has(string name) => !string.IsNullOrEmpty(name) && Names.Contains(name);
+
+        public static Sprite[] FramesFor(string name) => Load(name);
 
         public static (string name, Sprite[] frames) RandomCharacter(string except = null)
         {

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TikTokLiveGame
 {
@@ -438,14 +438,29 @@ namespace TikTokLiveGame
             rankLabel.transform.localPosition = new Vector3(0f, bannerY + 0.34f * identityScale, 0f);
         }
 
+        public string CharacterName => characterName;
+
         public void ChangeCharacter()
         {
             (string nextName, Sprite[] frames) = CharacterLibrary.RandomCharacter(characterName);
-            characterName = nextName;
-            flipbook.SetFrames(frames, nextName == "hanhan_video_dance" ? 15f : Random.Range(10f, 14f));
+            ApplyCharacter(nextName, frames);
+            Celebrate(1.2f);
+        }
+
+        // Đặt đúng một nhân vật cụ thể (khôi phục nhân vật khách đã đổi trong phiên),
+        // không kèm hiệu ứng ăn mừng và không đổi ngẫu nhiên.
+        public void SetCharacter(string name)
+        {
+            if (!CharacterLibrary.Has(name) || name == characterName) return;
+            ApplyCharacter(name, CharacterLibrary.FramesFor(name));
+        }
+
+        private void ApplyCharacter(string name, Sprite[] frames)
+        {
+            characterName = name;
+            flipbook.SetFrames(frames, name == "hanhan_video_dance" ? 15f : Random.Range(10f, 14f));
             characterBaseScale = Vector3.one * CharacterScale() * GiftPowerScale() * lineupScale;
             body.localScale = characterBaseScale;
-            Celebrate(1.2f);
         }
 
         private float CharacterScale()

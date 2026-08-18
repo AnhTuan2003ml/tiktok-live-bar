@@ -30,7 +30,10 @@ function sanitizeRule(input = {}) {
         label: String(input.label || '').trim().slice(0, 80),
         decorationCondition: input.decorationCondition === 'top_only' ? 'top_only' : 'always',
         variant: ['aura', 'neon', 'fire', 'royal'].includes(input.variant) ? input.variant : '',
-        fireworkBursts: Math.max(0, Math.min(12, Number(input.fireworkBursts) || 0))
+        fireworkBursts: Math.max(0, Math.min(12, Number(input.fireworkBursts) || 0)),
+        // Giới hạn tần suất theo từng tài khoản: trong khoảng này, cùng một người kích
+        // hoạt luật bao nhiêu lần cũng chỉ chạy hành động một lần (0 = không giới hạn).
+        cooldownSeconds: Math.max(0, Math.min(3600, Number(input.cooldownSeconds) || 0))
     };
 }
 

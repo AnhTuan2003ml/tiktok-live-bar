@@ -106,6 +106,8 @@ let masterConfig = sanitizeMasterConfig(initialMasterConfig);
 let operatorConfig = sanitizeOperatorConfig(initialOperatorConfig);
 const recentEventIds = new Map();
 const sessionPlayers = new Map();
+// Moc kich hoat luat cuoi cung theo tung tai khoan: key = `${ruleId}|${userId}`.
+const ruleCooldowns = new Map();
 const sessionVipScores = new Map();
 const observedGifts = new Map((Array.isArray(initialObservedGifts) ? initialObservedGifts : [])
     .map(gift => [String(gift.giftId || gift.giftName || ''), gift])
@@ -570,6 +572,7 @@ function resetSessionState(source = metrics.source) {
     sessionPlayers.clear();
     sessionVipScores.clear();
     recentEventIds.clear();
+    ruleCooldowns.clear();
 }
 
 function createSnapshot() {
@@ -716,10 +719,28 @@ function emitGameEvent(event) {
     broadcastMetrics();
 }
 
+// Trong khoang cooldown cua luat, cung mot tai khoan chi kich hoat hanh dong mot lan.
+// Tra true neu duoc phep chay (va ghi lai moc); false neu dang trong cooldown.
+function passesRuleCooldown(rule, event) {
+    if (!rule || !event.userId) return true;
+    const seconds = Number(rule.cooldownSeconds) || 0;
+    if (seconds <= 0) return true;
+
+    const key = `${rule.id}|${event.userId}`;
+    const now = Date.now();
+    const last = ruleCooldowns.get(key) || 0;
+    if (now - last < seconds * 1000) return false;
+    ruleCooldowns.set(key, now);
+    return true;
+}
+
 function processGameEvent(inputEvent) {
     const safeEvent = sanitizeGameEvent(inputEvent);
     if (!safeEvent) return;
-    const event = applyBuiltInChatCommand(applyRule(safeEvent, resolveMasterRule(masterConfig, safeEvent)));
+    const matchedRule = resolveMasterRule(masterConfig, safeEvent);
+    // Luat con trong cooldown cho tai khoan nay -> bo qua hanh dong (van tinh la su kien).
+    const activeRule = passesRuleCooldown(matchedRule, safeEvent) ? matchedRule : null;
+    const event = applyBuiltInChatCommand(applyRule(safeEvent, activeRule));
     const isKnownPlayer = Boolean(event.userId && sessionPlayers.has(event.userId));
     const explicitJoin = event.type === 'chat' && event.action === 'join';
     const spawnEnabled = shouldSpawnForEvent(operatorConfig, event.type);

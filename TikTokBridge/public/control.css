@@ -33,8 +33,8 @@
 
     --gap: 12px;
     /* Bảng rule: header và mọi dòng dùng chung một template cột */
-    --rule-cols: 22px minmax(130px, 1.25fr) 104px 146px 152px 66px minmax(94px, .85fr) 104px;
-    --rule-cols-chat: 22px minmax(130px, 1.2fr) 132px 146px 152px 66px minmax(94px, .85fr) 104px;
+    --rule-cols: 22px minmax(130px, 1.25fr) 104px 146px 152px 66px minmax(94px, .85fr) 66px 104px;
+    --rule-cols-chat: 22px minmax(130px, 1.2fr) 132px 146px 152px 66px minmax(94px, .85fr) 66px 104px;
     --col-left: 336px;
     --col-right: 372px;
 }
@@ -579,7 +579,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 }
 .hint-strip b { color: var(--text); }
 
-.rule-stack-wrap { min-width: 960px; }
+.rule-stack-wrap { min-width: 1030px; }
 .rule-stack { display: flex; flex-direction: column; gap: 7px; }
 
 /* Tiêu đề cột dính trên đầu vùng cuộn: cuộn bao nhiêu vẫn biết cột nào là cột nào */

@@ -112,6 +112,9 @@ namespace TikTokLiveGame
             ApplyVisibilityState();
         }
 
+        // Nhớ nhân vật khách đã đổi để giữ nguyên khi actor bị tạo lại trong phiên.
+        private readonly Dictionary<string, string> sessionCharacters = new();
+
         public PlayerActor GetOrCreate(TikTokEvent data)
         {
             if (string.IsNullOrWhiteSpace(data.userId)) return null;
@@ -163,7 +166,7 @@ namespace TikTokLiveGame
                 else
                 {
                     string command = Normalize(data.comment);
-                    if (command.Contains("doi nv")) actor.ChangeCharacter();
+                    if (command.Contains("doi nv")) { actor.ChangeCharacter(); RememberCharacter(actor); }
                     else if (command.Contains("di vong") || command.Contains("walk")) actor.Walk();
                     else if (command is "jump" or "nhay") actor.Jump();
                     else if (command.Contains("dance")) actor.Dance();
@@ -193,12 +196,18 @@ namespace TikTokLiveGame
             return data.conditionAllowed;
         }
 
-        private static void ApplyAction(PlayerActor actor, TikTokEvent data, float duration)
+        private void RememberCharacter(PlayerActor actor)
+        {
+            if (actor != null && !string.IsNullOrWhiteSpace(actor.UserId))
+                sessionCharacters[actor.UserId] = actor.CharacterName;
+        }
+
+        private void ApplyAction(PlayerActor actor, TikTokEvent data, float duration)
         {
             if (!ActionAllowed(data, actor)) return;
 
             if (data.action == "join") actor.ReturnToAssignedSlot();
-            else if (data.action == "change") actor.ChangeCharacter();
+            else if (data.action == "change") { actor.ChangeCharacter(); RememberCharacter(actor); }
             else if (data.action == "walk") actor.Walk(duration);
             else if (data.action == "jump") actor.Jump(duration);
             else if (data.action == "grow") actor.Grow(duration);
@@ -227,6 +236,7 @@ namespace TikTokLiveGame
             PlayerActor actor = playerObject.AddComponent<PlayerActor>();
             Color color = Color.HSVToRGB(Mathf.Repeat(index * 0.173f, 1f), 0.72f, 1f);
             actor.Initialize(data, Vector3.zero, color);
+            if (sessionCharacters.TryGetValue(data.userId, out string remembered)) actor.SetCharacter(remembered);
             if (!string.IsNullOrWhiteSpace(data.titleLabel)) actor.ShowTitle(data.titleLabel, 10f);
             players[data.userId] = actor;
             playerOrder.Add(data.userId);
@@ -388,6 +398,7 @@ namespace TikTokLiveGame
             foreach (PlayerActor actor in players.Values) Destroy(actor.gameObject);
             focusVersion++;
             focusedUserId = null;
+            sessionCharacters.Clear();
             players.Clear();
             playerOrder.Clear();
             crowdSlots.Clear();

@@ -346,6 +346,13 @@ function createRuleRow(rule) {
     label.dataset.field = 'label'; label.value = rule.label || ''; label.placeholder = 'Nhãn';
     row.append(createField('Nhãn', label));
 
+    const cooldown = document.createElement('input');
+    cooldown.type = 'number'; cooldown.min = '0'; cooldown.max = '3600'; cooldown.step = '1';
+    cooldown.dataset.field = 'cooldownSeconds';
+    cooldown.value = String(Number(rule.cooldownSeconds) || 0);
+    cooldown.title = 'Mỗi tài khoản chỉ kích hoạt luật này một lần trong khoảng giây này (0 = không giới hạn).';
+    row.append(createField('Giới hạn', cooldown));
+
     const actions = document.createElement('div');
     actions.className = 'rule-actions';
     const testButton = document.createElement('button');
@@ -391,6 +398,7 @@ function readRuleRows() {
             action: get('action')?.value || 'dance',
             decorationCondition: get('decorationCondition')?.value || original.decorationCondition || 'always',
             durationMs: Math.round((Number(get('durationSeconds')?.value) || 0) * 1000),
+            cooldownSeconds: Math.max(0, Math.min(3600, Number(get('cooldownSeconds')?.value) || 0)),
             label: get('label')?.value?.trim() || ''
         };
         if (source === 'chat' && result.match !== 'any' && !result.trigger) result.enabled = false;
