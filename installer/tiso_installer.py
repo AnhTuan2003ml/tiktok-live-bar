@@ -5,13 +5,43 @@ TISO Live — trình cài đặt (web installer).
 Chọn thư mục cài, tải bản phát hành mới nhất từ GitHub Releases, giải nén, ghi đè
 (giữ lại cấu hình/bản quyền/nhạc của người dùng khi cập nhật) và tạo shortcut run.bat.
 
-Build ra exe:  pyinstaller --onefile --windowed --name TISO_Live_Setup tiso_installer.py
+Build ra exe (kem cacert.pem de HTTPS chay duoc tren may khac):
+  chay: installer/build-exe.bat
 """
 
 import json
 import os
 import shutil
 import ssl
+import sys as _sys
+
+
+def _ca_bundle():
+    """Đường dẫn tới bộ chứng chỉ CA. Bản đóng gói (PyInstaller) mang theo certifi
+    để xác thực HTTPS được trên mọi máy, không phụ thuộc kho chứng chỉ hệ thống."""
+    # Bản đóng gói: cacert.pem nhúng ở gốc thư mục giải nén (_MEIPASS).
+    meipass = getattr(_sys, "_MEIPASS", None)
+    if meipass:
+        for name in ("cacert.pem", os.path.join("certifi", "cacert.pem")):
+            candidate = os.path.join(meipass, name)
+            if os.path.exists(candidate):
+                return candidate
+    # Bản chạy từ mã nguồn: dùng certifi cài trong Python.
+    try:
+        import certifi
+        path = certifi.where()
+        if path and os.path.exists(path):
+            return path
+    except Exception:
+        pass
+    return None
+
+
+def _ssl_context():
+    ca = _ca_bundle()
+    if ca:
+        return ssl.create_default_context(cafile=ca)
+    return ssl.create_default_context()
 import subprocess
 import sys
 import tempfile
@@ -49,7 +79,7 @@ def http_json(url):
         "User-Agent": "TISO-Installer",
         "Accept": "application/vnd.github+json",
     })
-    ctx = ssl.create_default_context()
+    ctx = _ssl_context()
     with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -279,7 +309,7 @@ class Installer(tk.Tk):
 
     def _download(self, url, dest, total):
         req = urllib.request.Request(url, headers={"User-Agent": "TISO-Installer"})
-        ctx = ssl.create_default_context()
+        ctx = _ssl_context()
         with urllib.request.urlopen(req, timeout=1800, context=ctx) as resp, open(dest, "wb") as out:
             downloaded = 0
             chunk = 1024 * 256
