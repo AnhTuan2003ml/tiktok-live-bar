@@ -48,6 +48,10 @@ function sanitizeOperatorConfig(input = {}) {
         welcomeEnabled: typeof mediaInput.welcomeEnabled === 'boolean' ? mediaInput.welcomeEnabled : true,
         welcomeVolume: clampFloat(mediaInput.welcomeVolume, 0, 1, 0.6),
         welcomeFile: String(mediaInput.welcomeFile || 'welcome.wav').slice(0, 200),
+        // Câu chào đọc tên khách; giữ trong config để chỉnh nâng cao, UI không cần lộ ra.
+        welcomeGreeting: (String(mediaInput.welcomeGreeting ?? 'Chào mừng {ten}').slice(0, 120) || 'Chào mừng {ten}'),
+        welcomeInterval: clampFloat(mediaInput.welcomeInterval, 1, 30, 4),
+        welcomeLang: String(mediaInput.welcomeLang || 'vi').toLowerCase().replace(/[^a-z-]/g, '').slice(0, 8) || 'vi',
         // Video/ảnh logo phủ ở góc dưới bên phải khung live.
         logoEnabled: typeof mediaInput.logoEnabled === 'boolean' ? mediaInput.logoEnabled : true,
         logoFile: String(mediaInput.logoFile || '').slice(0, 200),

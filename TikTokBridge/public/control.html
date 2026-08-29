@@ -160,26 +160,26 @@
                         <div class="card-head"><h2>Âm thanh chào khách</h2><span id="welcome-status" class="state-badge">BẬT</span></div>
                         <div class="card-body">
                             <label class="switch-row">
-                                <span><b>Phát khi có người vào phòng</b><small>Chuông chào mỗi khi có người vào LIVE.</small></span>
+                                <span><b>Bật âm thanh chào khách</b><small>Có người vào phòng sẽ tự kêu và tự đọc tên người đó.</small></span>
                                 <input id="welcome-enabled" type="checkbox" checked>
                             </label>
+                            <div class="field">
+                                <label for="welcome-sound">Âm thanh báo</label>
+                                <select id="welcome-sound"></select>
+                            </div>
+                            <div class="field">
+                                <label for="welcome-voice">Giọng đọc tên</label>
+                                <select id="welcome-voice"></select>
+                                <small>Tiếng Việt hợp nhất cho tên tiếng Việt.</small>
+                            </div>
                             <div class="volume-row">
                                 <label for="welcome-volume">Âm lượng</label>
                                 <input id="welcome-volume" type="range" min="0" max="100" step="1" value="60">
                                 <output id="welcome-volume-value">60%</output>
                             </div>
-                            <div class="field">
-                                <label for="welcome-file">Thay âm thanh chào (tuỳ chọn)</label>
-                                <input id="welcome-file" type="file" accept="audio/wav,audio/mpeg,audio/ogg,.wav,.mp3,.ogg">
-                                <small>WAV / MP3 / OGG · ngắn 1–2 giây là hợp lý. Bỏ trống để dùng chuông mặc định.</small>
-                            </div>
-                            <div class="button-row">
-                                <button id="welcome-apply-file" class="btn primary grow">Áp dụng âm thanh</button>
-                                <button id="welcome-save" class="btn">Lưu cài đặt</button>
-                            </div>
                             <div class="button-row">
                                 <button id="welcome-preview" class="btn grow">▶ Nghe thử</button>
-                                <button id="welcome-preview-stop" class="btn ghost">Dừng nghe</button>
+                                <button id="welcome-apply" class="btn primary grow">Áp dụng</button>
                             </div>
                         </div>
                     </article>
@@ -207,8 +207,7 @@
                                 <output id="logo-opacity-value">100%</output>
                             </div>
                             <div class="button-row">
-                                <button id="logo-apply-file" class="btn primary grow">Áp dụng logo</button>
-                                <button id="logo-save" class="btn">Lưu cài đặt</button>
+                                <button id="logo-apply-file" class="btn primary grow">Áp dụng</button>
                             </div>
                             <div id="logo-current-file" class="inline-status">Chưa có logo được chọn.</div>
                         </div>

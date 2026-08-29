@@ -49,6 +49,10 @@ DJ_VIDEO/*.mp4.bak
 DJ_SFX/*.mp3
 DJ_SFX/*.ogg
 DJ_SFX/*.tmp
+# Cache giọng đọc chào khách (tạo lại tự động).
+DJ_SFX/tts_cache/
+# Lựa chọn âm thanh chào theo máy (runtime).
+DJ_SFX/SELECTED_WELCOME.txt
 
 # DJ_LOGO: logo do người dùng tải lên, không đưa vào repo.
 DJ_LOGO/*.mp4

@@ -39,6 +39,7 @@ namespace TikTokLiveGame
         public string command;
         public bool boolValue;
         public float floatValue;
+        public string stringValue;
         public long titleExpiresAt;
         public TikTokPlayerData[] players;
         public TikTokPlayerData[] vipScores;

@@ -11,11 +11,9 @@ namespace TikTokLiveGame
     public sealed class LogoVideoOverlay : MonoBehaviour
     {
         private const float DefaultScale = 0.18f;   // theo chiều cao màn hình
-        private const float MarginRatio = 0.03f;    // lề tính theo cạnh nhỏ
 
         private VideoPlayer player;
         private RenderTexture videoSourceTexture;
-        private RenderTexture videoTexture;
         private Texture2D imageTexture;
 
         private bool enabledByConfig = true;
@@ -59,13 +57,6 @@ namespace TikTokLiveGame
                 wrapMode = TextureWrapMode.Clamp
             };
             videoSourceTexture.Create();
-            videoTexture = new RenderTexture(640, 640, 0, RenderTextureFormat.ARGB32)
-            {
-                name = "Logo Render Texture",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp
-            };
-            videoTexture.Create();
 
             player = gameObject.AddComponent<VideoPlayer>();
             player.playOnAwake = false;
@@ -114,29 +105,19 @@ namespace TikTokLiveGame
             Debug.Log($"Logo image loaded: {path}");
         }
 
-        private void Update()
-        {
-            if (videoSourceTexture != null && videoTexture != null)
-            {
-                Graphics.Blit(
-                    videoSourceTexture,
-                    videoTexture,
-                    new Vector2(1f, -1f),
-                    new Vector2(0f, 1f));
-            }
-        }
-
         private void OnGUI()
         {
             if (!enabledByConfig || !hasMedia) return;
-            Texture drawTexture = videoTexture != null ? (Texture)videoTexture : imageTexture;
+            // Vẽ thẳng texture nguồn: GUI.DrawTexture đã hiển thị RenderTexture đúng chiều,
+            // không cần blit lật nữa (lật thêm sẽ làm video úp ngược).
+            Texture drawTexture = videoSourceTexture != null ? (Texture)videoSourceTexture : imageTexture;
             if (drawTexture == null) return;
 
             float height = Screen.height * configuredScale;
             float width = height * (mediaAspect > 0.01f ? mediaAspect : 1f);
-            float margin = Mathf.Min(Screen.width, Screen.height) * MarginRatio;
-            float x = Screen.width - width - margin;
-            float y = Screen.height - height - margin;
+            // Sát hẳn mép dưới bên phải của khung live, không chừa lề.
+            float x = Screen.width - width;
+            float y = Screen.height - height;
 
             Color previous = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, configuredOpacity);
@@ -182,12 +163,6 @@ namespace TikTokLiveGame
                 videoSourceTexture.Release();
                 Destroy(videoSourceTexture);
                 videoSourceTexture = null;
-            }
-            if (videoTexture != null)
-            {
-                videoTexture.Release();
-                Destroy(videoTexture);
-                videoTexture = null;
             }
             if (imageTexture != null)
             {

@@ -14,6 +14,7 @@ const { getServerSettings, loadEnvironmentFile } = require('./src/config/environ
 const { normalizeProvider } = require('./src/config/provider');
 const { sanitizeOperatorConfig, shouldSpawnForEvent } = require('./src/config/operator');
 const { ObsClient, sanitizeObsEndpoint } = require('./src/obs/obs-client');
+const tts = require('./src/media/tts');
 const { normalizeTikTokUsername } = require('./public/js/normalize-username');
 
 require('./src/license/secure-env').loadSecureEnvironment();
@@ -85,6 +86,31 @@ const musicSelectedPath = path.join(djMusicDir, 'SELECTED.txt');
 const musicVolumePath = path.join(djMusicDir, 'VOLUME.txt');
 const djSfxDir = path.join(__dirname, '..', 'DJ_SFX');
 const djLogoDir = path.join(__dirname, '..', 'DJ_LOGO');
+const welcomeSelectedPath = path.join(djSfxDir, 'SELECTED_WELCOME.txt');
+const ttsCacheDir = path.join(djSfxDir, 'tts_cache');
+tts.configure(ttsCacheDir);
+
+// Nhãn hiển thị đẹp cho các âm thanh báo có sẵn; file lạ thì lấy theo tên.
+const WELCOME_SOUND_LABELS = {
+    'welcome.wav': 'Chuông ngân (mặc định)',
+    'ting.wav': 'Ting (ngắn)',
+    'chuong-doi.wav': 'Chuông đôi',
+    'nhac-vui.wav': 'Nhạc chào vui',
+    'boong.wav': 'Boong (trầm)'
+};
+// Danh sách giọng đọc tên miễn phí (Google TTS theo ngôn ngữ). Tiếng Việt hợp nhất cho tên Việt.
+const WELCOME_VOICES = [
+    { value: 'vi', label: 'Tiếng Việt (nữ)' },
+    { value: 'en', label: 'Tiếng Anh - Mỹ' },
+    { value: 'fr', label: 'Tiếng Pháp' },
+    { value: 'ja', label: 'Tiếng Nhật' },
+    { value: 'ko', label: 'Tiếng Hàn' },
+    { value: 'zh-CN', label: 'Tiếng Trung' }
+];
+function welcomeSoundLabel(file) {
+    if (WELCOME_SOUND_LABELS[file]) return WELCOME_SOUND_LABELS[file];
+    return file.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || file;
+}
 const LIVE_PROVIDER = normalizeProvider(process.env.LIVE_PROVIDER || gameConfig.liveProvider || 'auto');
 const TIKFINITY_WS_URL = String(process.env.TIKFINITY_WS_URL || gameConfig.tikfinityWsUrl || 'ws://127.0.0.1:21213/');
 const DIRECT_CONNECT_TIMEOUT_MS = 12000;
@@ -209,12 +235,31 @@ app.get('/api/music/current', async (_req, res) => {
     }
 });
 
-// Nghe thử âm thanh chào đang dùng.
-app.get('/api/welcome-sound/current', async (_req, res) => {
+// Danh sách âm thanh báo có sẵn + danh sách giọng đọc, cho combobox trên Control Panel.
+app.get('/api/welcome-sounds', async (_req, res) => {
     try {
-        const fileName = String(operatorConfig.media?.welcomeFile || 'welcome.wav').trim();
-        const safeName = path.basename(fileName) || 'welcome.wav';
-        const filePath = path.join(djSfxDir, safeName);
+        const selected = path.basename(String(operatorConfig.media?.welcomeFile || 'welcome.wav'));
+        let files = [];
+        try {
+            files = (await fs.readdir(djSfxDir))
+                .filter(name => ['.wav', '.mp3', '.ogg'].includes(path.extname(name).toLowerCase()))
+                .sort((a, b) => (a === 'welcome.wav' ? -1 : b === 'welcome.wav' ? 1 : a.localeCompare(b)));
+        } catch { files = []; }
+        const sounds = files.map(file => ({ file, label: welcomeSoundLabel(file), selected: file === selected }));
+        return res.json({ sounds, voices: WELCOME_VOICES, selectedVoice: operatorConfig.media?.welcomeLang || 'vi' });
+    } catch (error) {
+        return res.status(500).json({ ok: false, message: `Không đọc được danh sách âm thanh: ${error.message}` });
+    }
+});
+
+// Nghe thử một âm thanh báo (mặc định là âm thanh đang chọn, hoặc ?file= để thử file khác).
+app.get('/api/welcome-sound/current', async (req, res) => {
+    try {
+        const requested = req.query.file ? path.basename(String(req.query.file)) : '';
+        const fileName = requested || path.basename(String(operatorConfig.media?.welcomeFile || 'welcome.wav')) || 'welcome.wav';
+        const ext = path.extname(fileName).toLowerCase();
+        if (!['.wav', '.mp3', '.ogg'].includes(ext)) return res.status(400).json({ ok: false, message: 'File không hợp lệ.' });
+        const filePath = path.join(djSfxDir, fileName);
         await fs.access(filePath);
         res.setHeader('Cache-Control', 'no-store');
         return res.sendFile(filePath);
@@ -235,6 +280,21 @@ app.get('/api/logo/current', async (_req, res) => {
         return res.sendFile(filePath);
     } catch {
         return res.status(404).json({ ok: false, message: 'Không tìm thấy logo trong thư mục DJ_LOGO.' });
+    }
+});
+
+// Tổng hợp giọng đọc chào khách theo tên. Game gọi endpoint này rồi phát MP3.
+app.get('/api/tts', async (req, res) => {
+    try {
+        const text = tts.sanitizeText(req.query.text || req.query.q || '');
+        if (!text) return res.status(400).json({ ok: false, message: 'Thiếu nội dung đọc.' });
+        const lang = tts.normalizeLang(req.query.lang || operatorConfig.media?.welcomeLang || 'vi');
+        const buffer = await tts.synthesize(text, lang);
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.end(buffer);
+    } catch (error) {
+        return res.status(502).json({ ok: false, message: `Không tạo được giọng đọc: ${error.message}` });
     }
 });
 
@@ -1276,6 +1336,9 @@ async function handleClientMessage(ws, message) {
             const media = operatorConfig.media || {};
             send(ws, { type: 'game_control', command: 'welcome_enabled', boolValue: media.welcomeEnabled !== false });
             send(ws, { type: 'game_control', command: 'welcome_volume', floatValue: Number(media.welcomeVolume ?? 0.6) });
+            send(ws, { type: 'game_control', command: 'welcome_greeting', stringValue: String(media.welcomeGreeting ?? 'Chào mừng {ten}') });
+            send(ws, { type: 'game_control', command: 'welcome_interval', floatValue: Number(media.welcomeInterval ?? 4) });
+            send(ws, { type: 'game_control', command: 'welcome_lang', stringValue: String(media.welcomeLang ?? 'vi') });
             send(ws, { type: 'game_control', command: 'logo_enabled', boolValue: media.logoEnabled !== false });
             send(ws, { type: 'game_control', command: 'logo_scale', floatValue: Number(media.logoScale ?? 0.18) });
             send(ws, { type: 'game_control', command: 'logo_opacity', floatValue: Number(media.logoOpacity ?? 1) });
@@ -1359,6 +1422,37 @@ async function handleClientMessage(ws, message) {
             overlayCommands.push({ command: 'welcome_volume', floatValue: media.welcomeVolume });
             message_text = 'Đã lưu cài đặt âm thanh chào.';
         }
+        if (message.welcomeFile !== undefined) {
+            const requested = path.basename(String(message.welcomeFile || '')).trim();
+            let ok = false;
+            if (requested && ['.wav', '.mp3', '.ogg'].includes(path.extname(requested).toLowerCase())) {
+                try { await fs.access(path.join(djSfxDir, requested)); ok = true; } catch { ok = false; }
+            }
+            if (ok) {
+                media.welcomeFile = requested;
+                await fs.mkdir(djSfxDir, { recursive: true });
+                await fs.writeFile(welcomeSelectedPath, requested, 'utf8');
+                overlayCommands.push({ command: 'welcome_reload', boolValue: true });
+                message_text = 'Đã áp dụng âm thanh chào.';
+            }
+        }
+        if (message.welcomeLang !== undefined) {
+            const lang = String(message.welcomeLang || 'vi').toLowerCase().replace(/[^a-z-]/g, '').slice(0, 8) || 'vi';
+            media.welcomeLang = lang;
+            overlayCommands.push({ command: 'welcome_lang', stringValue: lang });
+            message_text = 'Đã áp dụng âm thanh chào.';
+        }
+        if (message.welcomeGreeting !== undefined) {
+            media.welcomeGreeting = String(message.welcomeGreeting).slice(0, 120) || 'Chào mừng {ten}';
+            overlayCommands.push({ command: 'welcome_greeting', stringValue: media.welcomeGreeting });
+            message_text = 'Đã lưu cài đặt âm thanh chào.';
+        }
+        if (message.welcomeInterval !== undefined) {
+            const iv = Math.max(1, Math.min(30, Number(message.welcomeInterval)));
+            media.welcomeInterval = Number.isFinite(iv) ? iv : 4;
+            overlayCommands.push({ command: 'welcome_interval', floatValue: media.welcomeInterval });
+            message_text = 'Đã lưu cài đặt âm thanh chào.';
+        }
         if (message.logoEnabled !== undefined) {
             media.logoEnabled = Boolean(message.logoEnabled);
             overlayCommands.push({ command: 'logo_enabled', boolValue: media.logoEnabled });
@@ -1387,7 +1481,7 @@ async function handleClientMessage(ws, message) {
     }
 
     if (message.type === 'game_control') {
-        const allowedCommands = new Set(['chroma', 'hud', 'feed', 'controls', 'fullscreen', 'background_reload', 'music_reload', 'music_volume', 'welcome_reload', 'welcome_enabled', 'welcome_volume', 'logo_reload', 'logo_enabled', 'logo_scale', 'logo_opacity', 'reset']);
+        const allowedCommands = new Set(['chroma', 'hud', 'feed', 'controls', 'fullscreen', 'background_reload', 'music_reload', 'music_volume', 'welcome_reload', 'welcome_enabled', 'welcome_volume', 'welcome_greeting', 'welcome_interval', 'welcome_lang', 'logo_reload', 'logo_enabled', 'logo_scale', 'logo_opacity', 'reset']);
         const command = String(message.command || '');
         if (!allowedCommands.has(command)) {
             return send(ws, { type: 'error', message: 'Lệnh điều khiển game không hợp lệ.' });

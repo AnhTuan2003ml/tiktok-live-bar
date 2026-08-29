@@ -9,7 +9,7 @@ const state = {
     live: { state: 'idle', username: null, message: 'Chưa kết nối' },
     metrics: { source: 'idle', events: 0, chats: 0, gifts: 0, diamonds: 0, likes: 0, players: 0, eventsPerSecond: 0 },
     master: { joinMode: 'keyword_only', giftAlwaysJoins: true, rules: [] },
-    operator: { spawnEvents: { chat: true, gift: true, like: false, follow: true, share: true, member: false }, obs: { host: '127.0.0.1', port: 4455, password: '', autoConnect: true }, media: { musicVolume: .35, backgroundFile: 'nenamphu.png', audioFile: '', welcomeEnabled: true, welcomeVolume: .6, welcomeFile: 'welcome.wav', logoEnabled: true, logoFile: '', logoScale: .18, logoOpacity: 1 }, recentEventLimit: 200 },
+    operator: { spawnEvents: { chat: true, gift: true, like: false, follow: true, share: true, member: false }, obs: { host: '127.0.0.1', port: 4455, password: '', autoConnect: true }, media: { musicVolume: .35, backgroundFile: 'nenamphu.png', audioFile: '', welcomeEnabled: true, welcomeVolume: .6, welcomeFile: 'welcome.wav', welcomeGreeting: 'Chào mừng {ten}', welcomeInterval: 4, welcomeLang: 'vi', logoEnabled: true, logoFile: '', logoScale: .18, logoOpacity: 1 }, recentEventLimit: 200 },
     gifts: new Map(),
     recentEvents: [],
     eventFilter: 'all',
@@ -427,6 +427,7 @@ function renderOperator() {
     const welcomeVol = Math.round(Math.max(0, Math.min(1, Number(media.welcomeVolume ?? 0.6))) * 100);
     if ($('#welcome-volume')) $('#welcome-volume').value = String(welcomeVol);
     if ($('#welcome-volume-value')) $('#welcome-volume-value').textContent = `${welcomeVol}%`;
+    if (typeof syncWelcomeSelects === 'function') syncWelcomeSelects();
 
     // Video logo góc dưới phải
     const logoEnabled = media.logoEnabled !== false;
@@ -812,56 +813,117 @@ async function uploadBinary(url, file, buttonEl, busyText, doneText) {
     }
 }
 
+// Nạp danh sách âm thanh báo + giọng đọc cho combobox (gọi 1 lần khi mở trang).
+let welcomeListLoaded = false;
+async function loadWelcomeLists() {
+    try {
+        const data = await (await fetch('/api/welcome-sounds')).json();
+        const soundSel = $('#welcome-sound');
+        if (soundSel && Array.isArray(data.sounds)) {
+            soundSel.innerHTML = '';
+            for (const s of data.sounds) {
+                const opt = document.createElement('option');
+                opt.value = s.file; opt.textContent = s.label;
+                soundSel.appendChild(opt);
+            }
+        }
+        const voiceSel = $('#welcome-voice');
+        if (voiceSel && Array.isArray(data.voices)) {
+            voiceSel.innerHTML = '';
+            for (const v of data.voices) {
+                const opt = document.createElement('option');
+                opt.value = v.value; opt.textContent = v.label;
+                voiceSel.appendChild(opt);
+            }
+        }
+        welcomeListLoaded = true;
+        syncWelcomeSelects();
+    } catch { /* để im, thử lại lần render sau */ }
+}
+
+// Đưa combobox về đúng lựa chọn đang lưu trong cấu hình.
+function syncWelcomeSelects() {
+    const media = state.operator.media || {};
+    const soundSel = $('#welcome-sound');
+    if (soundSel && media.welcomeFile && [...soundSel.options].some(o => o.value === media.welcomeFile)) {
+        soundSel.value = media.welcomeFile;
+    }
+    const voiceSel = $('#welcome-voice');
+    if (voiceSel && media.welcomeLang && [...voiceSel.options].some(o => o.value === media.welcomeLang)) {
+        voiceSel.value = media.welcomeLang;
+    }
+}
+
 $('#welcome-volume')?.addEventListener('input', () => {
     $('#welcome-volume-value').textContent = `${$('#welcome-volume').value}%`;
 });
+// Bật/tắt và âm lượng áp dụng ngay, không cần nút lưu.
 $('#welcome-enabled')?.addEventListener('change', () => {
     send({ type: 'media_settings', welcomeEnabled: $('#welcome-enabled').checked });
 });
-$('#welcome-save')?.addEventListener('click', () => {
+$('#welcome-volume')?.addEventListener('change', () => {
+    send({ type: 'media_settings', welcomeVolume: (Number($('#welcome-volume').value) || 0) / 100 });
+});
+$('#welcome-apply')?.addEventListener('click', () => {
     send({
         type: 'media_settings',
-        welcomeEnabled: $('#welcome-enabled').checked,
-        welcomeVolume: (Number($('#welcome-volume').value) || 0) / 100
+        welcomeFile: $('#welcome-sound')?.value || 'welcome.wav',
+        welcomeLang: $('#welcome-voice')?.value || 'vi'
     });
-});
-$('#welcome-apply-file')?.addEventListener('click', async () => {
-    const file = $('#welcome-file')?.files?.[0];
-    if (!file) return toast('Hãy chọn file âm thanh trước.', 'error');
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
-    if (!['wav', 'mp3', 'ogg'].includes(ext)) return toast('Chỉ hỗ trợ WAV, MP3 hoặc OGG.', 'error');
-    const ok = await uploadBinary('/api/welcome-sound', file, $('#welcome-apply-file'), 'Đang tải…', 'Đã cập nhật âm thanh chào.');
-    if (ok) welcomePreview.src = '';
+    toast('Đã áp dụng âm thanh chào.', 'success');
 });
 
+// Nghe thử: phát âm thanh báo đang chọn, rồi đọc thử một tên mẫu bằng giọng đang chọn.
 const welcomePreview = new Audio();
 welcomePreview.preload = 'none';
+let welcomePreviewStage = 0; // 0 = xong, 1 = đang phát chuông, 2 = đang đọc tên
 function stopWelcomePreview() {
+    welcomePreviewStage = 0;
     welcomePreview.pause();
     welcomePreview.currentTime = 0;
     const button = $('#welcome-preview');
     if (button) button.textContent = '▶ Nghe thử';
 }
-welcomePreview.addEventListener('ended', stopWelcomePreview);
+function welcomePreviewVolume() {
+    welcomePreview.volume = Math.max(0, Math.min(1, (Number($('#welcome-volume')?.value) || 0) / 100));
+}
+welcomePreview.addEventListener('ended', async () => {
+    if (welcomePreviewStage === 1) {
+        // Xong chuông → đọc tên mẫu bằng giọng đang chọn.
+        welcomePreviewStage = 2;
+        const voice = $('#welcome-voice')?.value || 'vi';
+        welcomePreview.src = `/api/tts?lang=${encodeURIComponent(voice)}&text=${encodeURIComponent('Chào mừng Anh Tuấn')}&t=${Date.now()}`;
+        welcomePreviewVolume();
+        try { await welcomePreview.play(); } catch { stopWelcomePreview(); }
+    } else {
+        stopWelcomePreview();
+    }
+});
 welcomePreview.addEventListener('error', () => {
+    // Nếu lỗi ở bước chuông thì vẫn thử đọc tên; lỗi ở bước tên thì dừng.
+    if (welcomePreviewStage === 1) { welcomePreview.dispatchEvent(new Event('ended')); return; }
     stopWelcomePreview();
-    toast('Không phát được âm thanh chào.', 'error');
+    toast('Không phát được. Kiểm tra mạng cho phần đọc tên.', 'error');
 });
 $('#welcome-preview')?.addEventListener('click', async () => {
     const button = $('#welcome-preview');
-    if (!welcomePreview.paused) { stopWelcomePreview(); return; }
+    if (welcomePreviewStage !== 0) { stopWelcomePreview(); return; }
+    welcomePreviewStage = 1;
+    const sound = $('#welcome-sound')?.value || 'welcome.wav';
+    welcomePreview.src = `/api/welcome-sound/current?file=${encodeURIComponent(sound)}&t=${Date.now()}`;
+    welcomePreviewVolume();
     try {
-        welcomePreview.src = `/api/welcome-sound/current?t=${Date.now()}`;
-        welcomePreview.volume = Math.max(0, Math.min(1, (Number($('#welcome-volume')?.value) || 0) / 100));
         await welcomePreview.play();
         button.textContent = '⏸ Dừng';
-    } catch (error) {
-        toast(`Không phát được: ${error.message}`, 'error');
+    } catch {
+        // Không có chuông thì bỏ qua, đọc luôn tên.
+        welcomePreview.dispatchEvent(new Event('ended'));
     }
 });
-$('#welcome-preview-stop')?.addEventListener('click', stopWelcomePreview);
+loadWelcomeLists();
 
 // ----- Video logo góc dưới phải -----
+// Bật/tắt, kích thước, độ mờ đều lưu + áp dụng ngay khi chỉnh (không cần nút lưu).
 $('#logo-scale')?.addEventListener('input', () => {
     $('#logo-scale-value').textContent = `${$('#logo-scale').value}%`;
 });
@@ -871,13 +933,11 @@ $('#logo-opacity')?.addEventListener('input', () => {
 $('#logo-enabled')?.addEventListener('change', () => {
     send({ type: 'media_settings', logoEnabled: $('#logo-enabled').checked });
 });
-$('#logo-save')?.addEventListener('click', () => {
-    send({
-        type: 'media_settings',
-        logoEnabled: $('#logo-enabled').checked,
-        logoScale: (Number($('#logo-scale').value) || 18) / 100,
-        logoOpacity: (Number($('#logo-opacity').value) || 100) / 100
-    });
+$('#logo-scale')?.addEventListener('change', () => {
+    send({ type: 'media_settings', logoScale: (Number($('#logo-scale').value) || 18) / 100 });
+});
+$('#logo-opacity')?.addEventListener('change', () => {
+    send({ type: 'media_settings', logoOpacity: (Number($('#logo-opacity').value) || 100) / 100 });
 });
 $('#logo-file')?.addEventListener('change', event => {
     const file = event.target.files?.[0];
@@ -885,14 +945,23 @@ $('#logo-file')?.addEventListener('change', event => {
     $('#logo-current-file').textContent = `Đã chọn: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
     setBadge($('#logo-status'), 'SẴN SÀNG', 'warn');
 });
+// "Áp dụng" = lưu + áp dụng luôn: tải logo mới (nếu có chọn) và áp mọi cài đặt.
 $('#logo-apply-file')?.addEventListener('click', async () => {
     const file = $('#logo-file')?.files?.[0];
-    if (!file) return toast('Hãy chọn video hoặc ảnh logo trước.', 'error');
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
-    if (!['mp4', 'mov', 'webm', 'png', 'jpg', 'jpeg'].includes(ext)) {
-        return toast('Chỉ hỗ trợ MP4, MOV, WEBM hoặc PNG/JPG.', 'error');
+    if (file) {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        if (!['mp4', 'mov', 'webm', 'png', 'jpg', 'jpeg'].includes(ext)) {
+            return toast('Chỉ hỗ trợ MP4, MOV, WEBM hoặc PNG/JPG.', 'error');
+        }
+        await uploadBinary('/api/logo-video', file, $('#logo-apply-file'), 'Đang tải…', 'Đã cập nhật logo.');
     }
-    await uploadBinary('/api/logo-video', file, $('#logo-apply-file'), 'Đang tải…', 'Đã cập nhật logo.');
+    send({
+        type: 'media_settings',
+        logoEnabled: $('#logo-enabled').checked,
+        logoScale: (Number($('#logo-scale').value) || 18) / 100,
+        logoOpacity: (Number($('#logo-opacity').value) || 100) / 100
+    });
+    if (!file) toast('Đã áp dụng cài đặt logo.', 'success');
 });
 
 // ----- Kiểm tra âm thanh có thật sự vào OBS không -----

@@ -149,7 +149,7 @@ namespace TikTokLiveGame
             {
                 AddEnergy(1f);
                 AddFeed($"{liveEvent.nickname} vào sàn", new Color(0.35f, 0.95f, 1f));
-                welcomeSound?.PlayWelcome();
+                welcomeSound?.GreetMember(liveEvent.nickname);
             }
             else if (liveEvent.type is "follow" or "share")
             {
@@ -410,6 +410,24 @@ namespace TikTokLiveGame
                 {
                     WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
                     welcome?.SetEnabled(liveEvent.boolValue);
+                    break;
+                }
+                case "welcome_greeting":
+                {
+                    WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
+                    welcome?.SetGreeting(liveEvent.stringValue);
+                    break;
+                }
+                case "welcome_interval":
+                {
+                    WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
+                    welcome?.SetInterval(liveEvent.floatValue);
+                    break;
+                }
+                case "welcome_lang":
+                {
+                    WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
+                    welcome?.SetLang(liveEvent.stringValue);
                     break;
                 }
                 case "logo_reload":
