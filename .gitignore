@@ -45,6 +45,21 @@ DJ_VIDEO/*.m4v
 DJ_VIDEO/*.webm
 DJ_VIDEO/*.mp4.bak
 
+# DJ_SFX: giữ chuông chào mặc định welcome.wav, bỏ qua file người dùng tự thay.
+DJ_SFX/*.mp3
+DJ_SFX/*.ogg
+DJ_SFX/*.tmp
+
+# DJ_LOGO: logo do người dùng tải lên, không đưa vào repo.
+DJ_LOGO/*.mp4
+DJ_LOGO/*.mov
+DJ_LOGO/*.m4v
+DJ_LOGO/*.webm
+DJ_LOGO/*.png
+DJ_LOGO/*.jpg
+DJ_LOGO/*.jpeg
+DJ_LOGO/*.tmp
+
 # ── OS & IDE ─────────────────────────────────
 .DS_Store
 Thumbs.db

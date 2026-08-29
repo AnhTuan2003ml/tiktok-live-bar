@@ -23,6 +23,8 @@ namespace TikTokLiveGame
             players.transform.SetParent(root.transform);
             GiftEffectManager giftEffects = root.AddComponent<GiftEffectManager>();
             root.AddComponent<MusicPlaylistPlayer>();
+            root.AddComponent<WelcomeSoundPlayer>();
+            root.AddComponent<LogoVideoOverlay>();
             TikTokGameController game = root.AddComponent<TikTokGameController>();
             game.Initialize(client, players, giftEffects);
             client.ConfigureTelemetry(players, game);

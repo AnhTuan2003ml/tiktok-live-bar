@@ -155,6 +155,64 @@
                             <p class="card-note">Nghe thử phát trên máy bạn. Nếu OBS đang bắt Desktop Audio thì người xem cũng nghe thấy tiếng nghe thử.</p>
                         </div>
                     </article>
+
+                    <article class="card">
+                        <div class="card-head"><h2>Âm thanh chào khách</h2><span id="welcome-status" class="state-badge">BẬT</span></div>
+                        <div class="card-body">
+                            <label class="switch-row">
+                                <span><b>Phát khi có người vào phòng</b><small>Chuông chào mỗi khi có người vào LIVE.</small></span>
+                                <input id="welcome-enabled" type="checkbox" checked>
+                            </label>
+                            <div class="volume-row">
+                                <label for="welcome-volume">Âm lượng</label>
+                                <input id="welcome-volume" type="range" min="0" max="100" step="1" value="60">
+                                <output id="welcome-volume-value">60%</output>
+                            </div>
+                            <div class="field">
+                                <label for="welcome-file">Thay âm thanh chào (tuỳ chọn)</label>
+                                <input id="welcome-file" type="file" accept="audio/wav,audio/mpeg,audio/ogg,.wav,.mp3,.ogg">
+                                <small>WAV / MP3 / OGG · ngắn 1–2 giây là hợp lý. Bỏ trống để dùng chuông mặc định.</small>
+                            </div>
+                            <div class="button-row">
+                                <button id="welcome-apply-file" class="btn primary grow">Áp dụng âm thanh</button>
+                                <button id="welcome-save" class="btn">Lưu cài đặt</button>
+                            </div>
+                            <div class="button-row">
+                                <button id="welcome-preview" class="btn grow">▶ Nghe thử</button>
+                                <button id="welcome-preview-stop" class="btn ghost">Dừng nghe</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head"><h2>Video logo (góc dưới phải)</h2><span id="logo-status" class="state-badge">CHƯA CHỌN</span></div>
+                        <div class="card-body">
+                            <label class="switch-row">
+                                <span><b>Hiển thị logo trên khung live</b><small>Đặt cố định ở góc dưới bên phải.</small></span>
+                                <input id="logo-enabled" type="checkbox" checked>
+                            </label>
+                            <div class="field">
+                                <label for="logo-file">Chọn video / ảnh logo</label>
+                                <input id="logo-file" type="file" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,.mp4,.mov,.webm,.png,.jpg,.jpeg">
+                                <small>MP4 / WEBM / MOV hoặc PNG (nền trong). Khuyên dùng hình vuông.</small>
+                            </div>
+                            <div class="volume-row">
+                                <label for="logo-scale">Kích thước</label>
+                                <input id="logo-scale" type="range" min="5" max="45" step="1" value="18">
+                                <output id="logo-scale-value">18%</output>
+                            </div>
+                            <div class="volume-row">
+                                <label for="logo-opacity">Độ mờ</label>
+                                <input id="logo-opacity" type="range" min="20" max="100" step="1" value="100">
+                                <output id="logo-opacity-value">100%</output>
+                            </div>
+                            <div class="button-row">
+                                <button id="logo-apply-file" class="btn primary grow">Áp dụng logo</button>
+                                <button id="logo-save" class="btn">Lưu cài đặt</button>
+                            </div>
+                            <div id="logo-current-file" class="inline-status">Chưa có logo được chọn.</div>
+                        </div>
+                    </article>
                 </div>
 
                 <!-- ---------- Cột 2: spawn + rules ---------- -->

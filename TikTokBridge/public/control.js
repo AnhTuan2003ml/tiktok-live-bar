@@ -9,7 +9,7 @@ const state = {
     live: { state: 'idle', username: null, message: 'Chưa kết nối' },
     metrics: { source: 'idle', events: 0, chats: 0, gifts: 0, diamonds: 0, likes: 0, players: 0, eventsPerSecond: 0 },
     master: { joinMode: 'keyword_only', giftAlwaysJoins: true, rules: [] },
-    operator: { spawnEvents: { chat: true, gift: true, like: false, follow: true, share: true, member: false }, obs: { host: '127.0.0.1', port: 4455, password: '', autoConnect: true }, media: { musicVolume: .35, backgroundFile: 'nenamphu.png', audioFile: '' }, recentEventLimit: 200 },
+    operator: { spawnEvents: { chat: true, gift: true, like: false, follow: true, share: true, member: false }, obs: { host: '127.0.0.1', port: 4455, password: '', autoConnect: true }, media: { musicVolume: .35, backgroundFile: 'nenamphu.png', audioFile: '', welcomeEnabled: true, welcomeVolume: .6, welcomeFile: 'welcome.wav', logoEnabled: true, logoFile: '', logoScale: .18, logoOpacity: 1 }, recentEventLimit: 200 },
     gifts: new Map(),
     recentEvents: [],
     eventFilter: 'all',
@@ -418,6 +418,29 @@ function renderOperator() {
     const audioFile = state.operator.media?.audioFile || '';
     $('#music-current-file').textContent = audioFile ? `Đang dùng: DJ_MUSIC/${audioFile}` : 'Chưa có file được chọn từ giao diện.';
     setBadge($('#music-file-status'), audioFile ? 'ĐÃ CHỌN' : 'CHƯA CHỌN', audioFile ? 'ok' : '');
+
+    // Âm thanh chào khách
+    const media = state.operator.media || {};
+    const welcomeEnabled = media.welcomeEnabled !== false;
+    if ($('#welcome-enabled')) $('#welcome-enabled').checked = welcomeEnabled;
+    setBadge($('#welcome-status'), welcomeEnabled ? 'BẬT' : 'TẮT', welcomeEnabled ? 'ok' : '');
+    const welcomeVol = Math.round(Math.max(0, Math.min(1, Number(media.welcomeVolume ?? 0.6))) * 100);
+    if ($('#welcome-volume')) $('#welcome-volume').value = String(welcomeVol);
+    if ($('#welcome-volume-value')) $('#welcome-volume-value').textContent = `${welcomeVol}%`;
+
+    // Video logo góc dưới phải
+    const logoEnabled = media.logoEnabled !== false;
+    if ($('#logo-enabled')) $('#logo-enabled').checked = logoEnabled;
+    const logoFile = media.logoFile || '';
+    setBadge($('#logo-status'), logoFile ? (logoEnabled ? 'ĐANG BẬT' : 'ĐÃ CHỌN') : 'CHƯA CHỌN', logoFile ? 'ok' : '');
+    if ($('#logo-current-file')) $('#logo-current-file').textContent = logoFile ? `Đang dùng: DJ_LOGO/${logoFile}` : 'Chưa có logo được chọn.';
+    const logoScale = Math.round(Math.max(0.05, Math.min(0.6, Number(media.logoScale ?? 0.18))) * 100);
+    if ($('#logo-scale')) $('#logo-scale').value = String(logoScale);
+    if ($('#logo-scale-value')) $('#logo-scale-value').textContent = `${logoScale}%`;
+    const logoOpacity = Math.round(Math.max(0, Math.min(1, Number(media.logoOpacity ?? 1))) * 100);
+    if ($('#logo-opacity')) $('#logo-opacity').value = String(logoOpacity);
+    if ($('#logo-opacity-value')) $('#logo-opacity-value').textContent = `${logoOpacity}%`;
+
     $('#operator-json').value = JSON.stringify(state.operator, null, 2);
 }
 
@@ -764,6 +787,113 @@ $('#music-preview')?.addEventListener('click', async () => {
     }
 });
 $('#music-preview-stop')?.addEventListener('click', stopMusicPreview);
+
+// ----- Âm thanh chào khách -----
+async function uploadBinary(url, file, buttonEl, busyText, doneText) {
+    buttonEl.disabled = true;
+    const original = buttonEl.textContent;
+    buttonEl.textContent = busyText;
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
+            body: file
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok === false) throw new Error(result.message || `HTTP ${response.status}`);
+        toast(result.message || doneText, 'success');
+        return true;
+    } catch (error) {
+        toast(error.message || 'Không thể tải file.', 'error');
+        return false;
+    } finally {
+        buttonEl.disabled = false;
+        buttonEl.textContent = original;
+    }
+}
+
+$('#welcome-volume')?.addEventListener('input', () => {
+    $('#welcome-volume-value').textContent = `${$('#welcome-volume').value}%`;
+});
+$('#welcome-enabled')?.addEventListener('change', () => {
+    send({ type: 'media_settings', welcomeEnabled: $('#welcome-enabled').checked });
+});
+$('#welcome-save')?.addEventListener('click', () => {
+    send({
+        type: 'media_settings',
+        welcomeEnabled: $('#welcome-enabled').checked,
+        welcomeVolume: (Number($('#welcome-volume').value) || 0) / 100
+    });
+});
+$('#welcome-apply-file')?.addEventListener('click', async () => {
+    const file = $('#welcome-file')?.files?.[0];
+    if (!file) return toast('Hãy chọn file âm thanh trước.', 'error');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!['wav', 'mp3', 'ogg'].includes(ext)) return toast('Chỉ hỗ trợ WAV, MP3 hoặc OGG.', 'error');
+    const ok = await uploadBinary('/api/welcome-sound', file, $('#welcome-apply-file'), 'Đang tải…', 'Đã cập nhật âm thanh chào.');
+    if (ok) welcomePreview.src = '';
+});
+
+const welcomePreview = new Audio();
+welcomePreview.preload = 'none';
+function stopWelcomePreview() {
+    welcomePreview.pause();
+    welcomePreview.currentTime = 0;
+    const button = $('#welcome-preview');
+    if (button) button.textContent = '▶ Nghe thử';
+}
+welcomePreview.addEventListener('ended', stopWelcomePreview);
+welcomePreview.addEventListener('error', () => {
+    stopWelcomePreview();
+    toast('Không phát được âm thanh chào.', 'error');
+});
+$('#welcome-preview')?.addEventListener('click', async () => {
+    const button = $('#welcome-preview');
+    if (!welcomePreview.paused) { stopWelcomePreview(); return; }
+    try {
+        welcomePreview.src = `/api/welcome-sound/current?t=${Date.now()}`;
+        welcomePreview.volume = Math.max(0, Math.min(1, (Number($('#welcome-volume')?.value) || 0) / 100));
+        await welcomePreview.play();
+        button.textContent = '⏸ Dừng';
+    } catch (error) {
+        toast(`Không phát được: ${error.message}`, 'error');
+    }
+});
+$('#welcome-preview-stop')?.addEventListener('click', stopWelcomePreview);
+
+// ----- Video logo góc dưới phải -----
+$('#logo-scale')?.addEventListener('input', () => {
+    $('#logo-scale-value').textContent = `${$('#logo-scale').value}%`;
+});
+$('#logo-opacity')?.addEventListener('input', () => {
+    $('#logo-opacity-value').textContent = `${$('#logo-opacity').value}%`;
+});
+$('#logo-enabled')?.addEventListener('change', () => {
+    send({ type: 'media_settings', logoEnabled: $('#logo-enabled').checked });
+});
+$('#logo-save')?.addEventListener('click', () => {
+    send({
+        type: 'media_settings',
+        logoEnabled: $('#logo-enabled').checked,
+        logoScale: (Number($('#logo-scale').value) || 18) / 100,
+        logoOpacity: (Number($('#logo-opacity').value) || 100) / 100
+    });
+});
+$('#logo-file')?.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    $('#logo-current-file').textContent = `Đã chọn: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    setBadge($('#logo-status'), 'SẴN SÀNG', 'warn');
+});
+$('#logo-apply-file')?.addEventListener('click', async () => {
+    const file = $('#logo-file')?.files?.[0];
+    if (!file) return toast('Hãy chọn video hoặc ảnh logo trước.', 'error');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!['mp4', 'mov', 'webm', 'png', 'jpg', 'jpeg'].includes(ext)) {
+        return toast('Chỉ hỗ trợ MP4, MOV, WEBM hoặc PNG/JPG.', 'error');
+    }
+    await uploadBinary('/api/logo-video', file, $('#logo-apply-file'), 'Đang tải…', 'Đã cập nhật logo.');
+});
 
 // ----- Kiểm tra âm thanh có thật sự vào OBS không -----
 function audioSourceLabel(kind) {

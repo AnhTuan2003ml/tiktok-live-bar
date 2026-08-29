@@ -746,6 +746,10 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
     padding-right: 3px;
 }
 .switch-row { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.switch-row > span { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.switch-row > span b { color: var(--text); font-size: 12px; }
+.switch-row > span small { color: var(--faint); font-weight: 400; font-size: 11px; }
+.switch-row input[type="checkbox"] { flex: none; }
 .system-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .system-detail-grid > div {
     padding: 7px 10px;

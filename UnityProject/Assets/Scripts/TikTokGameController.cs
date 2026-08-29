@@ -10,6 +10,7 @@ namespace TikTokLiveGame
         private PlayerManager playerManager;
         private GiftEffectManager giftEffects;
         private ClubCameraController clubCamera;
+        private WelcomeSoundPlayer welcomeSound;
         private readonly Dictionary<string, Donor> donors = new();
         private readonly List<FeedEntry> feed = new();
         private string username = "";
@@ -88,6 +89,7 @@ namespace TikTokLiveGame
             playerManager = manager;
             giftEffects = effects;
             clubCamera = Camera.main?.GetComponent<ClubCameraController>();
+            welcomeSound = FindFirstObjectByType<WelcomeSoundPlayer>();
             client.EventReceived += HandleEvent;
             playerManager.SnapshotApplied += UpdateTopPlayers;
             username = PlayerPrefs.GetString("TikTokUsername", string.Empty);
@@ -147,6 +149,7 @@ namespace TikTokLiveGame
             {
                 AddEnergy(1f);
                 AddFeed($"{liveEvent.nickname} vào sàn", new Color(0.35f, 0.95f, 1f));
+                welcomeSound?.PlayWelcome();
             }
             else if (liveEvent.type is "follow" or "share")
             {
@@ -389,6 +392,48 @@ namespace TikTokLiveGame
                 {
                     MusicPlaylistPlayer music = FindFirstObjectByType<MusicPlaylistPlayer>();
                     music?.SetConfiguredVolume(liveEvent.floatValue);
+                    break;
+                }
+                case "welcome_reload":
+                {
+                    WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
+                    welcome?.ReloadFromDisk();
+                    break;
+                }
+                case "welcome_volume":
+                {
+                    WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
+                    welcome?.SetConfiguredVolume(liveEvent.floatValue);
+                    break;
+                }
+                case "welcome_enabled":
+                {
+                    WelcomeSoundPlayer welcome = FindFirstObjectByType<WelcomeSoundPlayer>();
+                    welcome?.SetEnabled(liveEvent.boolValue);
+                    break;
+                }
+                case "logo_reload":
+                {
+                    LogoVideoOverlay logo = FindFirstObjectByType<LogoVideoOverlay>();
+                    logo?.ReloadFromDisk();
+                    break;
+                }
+                case "logo_enabled":
+                {
+                    LogoVideoOverlay logo = FindFirstObjectByType<LogoVideoOverlay>();
+                    logo?.SetEnabled(liveEvent.boolValue);
+                    break;
+                }
+                case "logo_scale":
+                {
+                    LogoVideoOverlay logo = FindFirstObjectByType<LogoVideoOverlay>();
+                    logo?.SetScale(liveEvent.floatValue);
+                    break;
+                }
+                case "logo_opacity":
+                {
+                    LogoVideoOverlay logo = FindFirstObjectByType<LogoVideoOverlay>();
+                    logo?.SetOpacity(liveEvent.floatValue);
                     break;
                 }
                 case "reset":

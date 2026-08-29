@@ -43,7 +43,16 @@ function sanitizeOperatorConfig(input = {}) {
     const media = {
         musicVolume: clampFloat(mediaInput.musicVolume, 0, 1, 0.35),
         backgroundFile: String(mediaInput.backgroundFile || 'nenamphu.png').slice(0, 200),
-        audioFile: String(mediaInput.audioFile || '').slice(0, 200)
+        audioFile: String(mediaInput.audioFile || '').slice(0, 200),
+        // Âm thanh chào khi có người vào phòng.
+        welcomeEnabled: typeof mediaInput.welcomeEnabled === 'boolean' ? mediaInput.welcomeEnabled : true,
+        welcomeVolume: clampFloat(mediaInput.welcomeVolume, 0, 1, 0.6),
+        welcomeFile: String(mediaInput.welcomeFile || 'welcome.wav').slice(0, 200),
+        // Video/ảnh logo phủ ở góc dưới bên phải khung live.
+        logoEnabled: typeof mediaInput.logoEnabled === 'boolean' ? mediaInput.logoEnabled : true,
+        logoFile: String(mediaInput.logoFile || '').slice(0, 200),
+        logoScale: clampFloat(mediaInput.logoScale, 0.05, 0.6, 0.18),
+        logoOpacity: clampFloat(mediaInput.logoOpacity, 0, 1, 1)
     };
 
     return {

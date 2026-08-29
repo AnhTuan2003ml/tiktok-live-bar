@@ -82,7 +82,7 @@ robocopy "%BRIDGE_DIR%" "%STAGE%\TikTokBridge" /E /NFL /NDL /NJH /NJS /NP /XJ ^
     /XD "test" ".git" /XF ".env" "*.log" "*.tmp.js" >nul
 if errorlevel 8 goto :copy_failed
 
-for %%D in (DJ_MUSIC DJ_VIDEO LiveAssets Documentation scripts installer) do (
+for %%D in (DJ_MUSIC DJ_VIDEO DJ_SFX DJ_LOGO LiveAssets Documentation scripts installer) do (
     if exist "%ROOT%%%D" (
         robocopy "%ROOT%%%D" "%STAGE%\%%D" /E /NFL /NDL /NJH /NJS /NP /XJ /XD __pycache__ /XF *.py >nul
         if errorlevel 8 goto :copy_failed

@@ -83,6 +83,8 @@ const liveBackgroundBackupPath = path.join(liveAssetsDir, 'nenamphu.original.png
 const djMusicDir = path.join(__dirname, '..', 'DJ_MUSIC');
 const musicSelectedPath = path.join(djMusicDir, 'SELECTED.txt');
 const musicVolumePath = path.join(djMusicDir, 'VOLUME.txt');
+const djSfxDir = path.join(__dirname, '..', 'DJ_SFX');
+const djLogoDir = path.join(__dirname, '..', 'DJ_LOGO');
 const LIVE_PROVIDER = normalizeProvider(process.env.LIVE_PROVIDER || gameConfig.liveProvider || 'auto');
 const TIKFINITY_WS_URL = String(process.env.TIKFINITY_WS_URL || gameConfig.tikfinityWsUrl || 'ws://127.0.0.1:21213/');
 const DIRECT_CONNECT_TIMEOUT_MS = 12000;
@@ -204,6 +206,35 @@ app.get('/api/music/current', async (_req, res) => {
         return res.sendFile(filePath);
     } catch {
         return res.status(404).json({ ok: false, message: 'Không tìm thấy file âm thanh trong thư mục DJ_MUSIC.' });
+    }
+});
+
+// Nghe thử âm thanh chào đang dùng.
+app.get('/api/welcome-sound/current', async (_req, res) => {
+    try {
+        const fileName = String(operatorConfig.media?.welcomeFile || 'welcome.wav').trim();
+        const safeName = path.basename(fileName) || 'welcome.wav';
+        const filePath = path.join(djSfxDir, safeName);
+        await fs.access(filePath);
+        res.setHeader('Cache-Control', 'no-store');
+        return res.sendFile(filePath);
+    } catch {
+        return res.status(404).json({ ok: false, message: 'Không tìm thấy âm thanh chào trong thư mục DJ_SFX.' });
+    }
+});
+
+// Xem trước logo đang dùng (video hoặc ảnh).
+app.get('/api/logo/current', async (_req, res) => {
+    try {
+        const fileName = String(operatorConfig.media?.logoFile || '').trim();
+        if (!fileName) return res.status(404).json({ ok: false, message: 'Chưa chọn logo nào.' });
+        const safeName = path.basename(fileName);
+        const filePath = path.join(djLogoDir, safeName);
+        await fs.access(filePath);
+        res.setHeader('Cache-Control', 'no-store');
+        return res.sendFile(filePath);
+    } catch {
+        return res.status(404).json({ ok: false, message: 'Không tìm thấy logo trong thư mục DJ_LOGO.' });
     }
 });
 
@@ -338,6 +369,80 @@ app.post('/api/music', express.raw({ type: 'application/octet-stream', limit: '8
     } catch (error) {
         console.error('[MUSIC] Upload failed:', error);
         return res.status(500).json({ ok: false, message: `Không thể lưu âm thanh: ${error.message}` });
+    }
+});
+
+// Tải lên âm thanh chào tuỳ chọn (thay cho welcome.wav mặc định).
+app.post('/api/welcome-sound', express.raw({ type: 'application/octet-stream', limit: '20mb' }), async (req, res) => {
+    try {
+        const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+        if (!buffer.length) return res.status(400).json({ ok: false, message: 'File âm thanh rỗng.' });
+        if (buffer.length > 20 * 1024 * 1024) return res.status(413).json({ ok: false, message: 'File âm thanh chào vượt quá 20 MB.' });
+        const originalName = String(req.headers['x-file-name'] || 'welcome.wav').slice(0, 240);
+        const ext = path.extname(originalName).toLowerCase();
+        if (!['.wav', '.mp3', '.ogg'].includes(ext)) {
+            return res.status(400).json({ ok: false, message: 'Chỉ hỗ trợ WAV, MP3 hoặc OGG.' });
+        }
+        await fs.mkdir(djSfxDir, { recursive: true });
+        const fileName = `welcome${ext}`;
+        for (const candidateExt of ['.wav', '.mp3', '.ogg']) {
+            if (candidateExt === ext) continue;
+            await fs.unlink(path.join(djSfxDir, `welcome${candidateExt}`)).catch(() => {});
+        }
+        const targetPath = path.join(djSfxDir, fileName);
+        const tempPath = `${targetPath}.tmp`;
+        await fs.writeFile(tempPath, buffer);
+        await fs.rename(tempPath, targetPath);
+
+        operatorConfig = sanitizeOperatorConfig({
+            ...operatorConfig,
+            media: { ...operatorConfig.media, welcomeFile: fileName }
+        });
+        await writeJsonAtomic(operatorConfigPath, operatorConfig);
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
+        broadcastRole('overlay', { type: 'game_control', command: 'welcome_reload', boolValue: true });
+        return res.json({ ok: true, file: fileName, bytes: buffer.length, message: 'Đã cập nhật âm thanh chào.' });
+    } catch (error) {
+        console.error('[WELCOME] Upload failed:', error);
+        return res.status(500).json({ ok: false, message: `Không thể lưu âm thanh chào: ${error.message}` });
+    }
+});
+
+// Tải lên video/ảnh logo góc dưới phải.
+app.post('/api/logo-video', express.raw({ type: 'application/octet-stream', limit: '80mb' }), async (req, res) => {
+    try {
+        const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+        if (!buffer.length) return res.status(400).json({ ok: false, message: 'File logo rỗng.' });
+        if (buffer.length > 80 * 1024 * 1024) return res.status(413).json({ ok: false, message: 'File logo vượt quá 80 MB.' });
+        const originalName = String(req.headers['x-file-name'] || 'logo.mp4').slice(0, 240);
+        const ext = path.extname(originalName).toLowerCase();
+        const videoExts = ['.mp4', '.mov', '.m4v', '.webm'];
+        const imageExts = ['.png', '.jpg', '.jpeg'];
+        if (![...videoExts, ...imageExts].includes(ext)) {
+            return res.status(400).json({ ok: false, message: 'Chỉ hỗ trợ MP4, MOV, WEBM hoặc PNG/JPG.' });
+        }
+        await fs.mkdir(djLogoDir, { recursive: true });
+        // Chỉ giữ một logo: xoá các file logo cũ trước khi ghi file mới.
+        for (const candidateExt of [...videoExts, ...imageExts]) {
+            await fs.unlink(path.join(djLogoDir, `logo${candidateExt}`)).catch(() => {});
+        }
+        const fileName = `logo${ext}`;
+        const targetPath = path.join(djLogoDir, fileName);
+        const tempPath = `${targetPath}.tmp`;
+        await fs.writeFile(tempPath, buffer);
+        await fs.rename(tempPath, targetPath);
+
+        operatorConfig = sanitizeOperatorConfig({
+            ...operatorConfig,
+            media: { ...operatorConfig.media, logoFile: fileName }
+        });
+        await writeJsonAtomic(operatorConfigPath, operatorConfig);
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
+        broadcastRole('overlay', { type: 'game_control', command: 'logo_reload', boolValue: true });
+        return res.json({ ok: true, file: fileName, bytes: buffer.length, message: 'Đã cập nhật logo góc dưới phải.' });
+    } catch (error) {
+        console.error('[LOGO] Upload failed:', error);
+        return res.status(500).json({ ok: false, message: `Không thể lưu logo: ${error.message}` });
     }
 });
 
@@ -1167,6 +1272,13 @@ async function handleClientMessage(ws, message) {
         if (ws.role === 'overlay') {
             send(ws, createSnapshot());
             send(ws, viewerGuideMessage());
+            // Đồng bộ cài đặt media để game áp đúng ngay khi mở, không phải đợi thao tác.
+            const media = operatorConfig.media || {};
+            send(ws, { type: 'game_control', command: 'welcome_enabled', boolValue: media.welcomeEnabled !== false });
+            send(ws, { type: 'game_control', command: 'welcome_volume', floatValue: Number(media.welcomeVolume ?? 0.6) });
+            send(ws, { type: 'game_control', command: 'logo_enabled', boolValue: media.logoEnabled !== false });
+            send(ws, { type: 'game_control', command: 'logo_scale', floatValue: Number(media.logoScale ?? 0.18) });
+            send(ws, { type: 'game_control', command: 'logo_opacity', floatValue: Number(media.logoOpacity ?? 1) });
             broadcastSystemStatus();
         }
         return;
@@ -1224,23 +1336,58 @@ async function handleClientMessage(ws, message) {
     }
 
     if (message.type === 'media_settings') {
-        const volume = Math.max(0, Math.min(1, Number(message.musicVolume)));
-        operatorConfig = sanitizeOperatorConfig({
-            ...operatorConfig,
-            media: { ...operatorConfig.media, musicVolume: Number.isFinite(volume) ? volume : 0.35 }
-        });
-        await fs.mkdir(djMusicDir, { recursive: true });
-        await fs.writeFile(musicVolumePath, String(operatorConfig.media.musicVolume), 'utf8');
+        const media = { ...operatorConfig.media };
+        const overlayCommands = [];
+        let message_text = 'Đã lưu cài đặt media.';
+
+        if (message.musicVolume !== undefined) {
+            const volume = Math.max(0, Math.min(1, Number(message.musicVolume)));
+            media.musicVolume = Number.isFinite(volume) ? volume : 0.35;
+            await fs.mkdir(djMusicDir, { recursive: true });
+            await fs.writeFile(musicVolumePath, String(media.musicVolume), 'utf8');
+            overlayCommands.push({ command: 'music_volume', floatValue: media.musicVolume });
+            message_text = 'Đã lưu âm lượng nền.';
+        }
+        if (message.welcomeEnabled !== undefined) {
+            media.welcomeEnabled = Boolean(message.welcomeEnabled);
+            overlayCommands.push({ command: 'welcome_enabled', boolValue: media.welcomeEnabled });
+            message_text = 'Đã lưu cài đặt âm thanh chào.';
+        }
+        if (message.welcomeVolume !== undefined) {
+            const wv = Math.max(0, Math.min(1, Number(message.welcomeVolume)));
+            media.welcomeVolume = Number.isFinite(wv) ? wv : 0.6;
+            overlayCommands.push({ command: 'welcome_volume', floatValue: media.welcomeVolume });
+            message_text = 'Đã lưu cài đặt âm thanh chào.';
+        }
+        if (message.logoEnabled !== undefined) {
+            media.logoEnabled = Boolean(message.logoEnabled);
+            overlayCommands.push({ command: 'logo_enabled', boolValue: media.logoEnabled });
+            message_text = 'Đã lưu cài đặt logo.';
+        }
+        if (message.logoScale !== undefined) {
+            const ls = Math.max(0.05, Math.min(0.6, Number(message.logoScale)));
+            media.logoScale = Number.isFinite(ls) ? ls : 0.18;
+            overlayCommands.push({ command: 'logo_scale', floatValue: media.logoScale });
+            message_text = 'Đã lưu cài đặt logo.';
+        }
+        if (message.logoOpacity !== undefined) {
+            const lo = Math.max(0, Math.min(1, Number(message.logoOpacity)));
+            media.logoOpacity = Number.isFinite(lo) ? lo : 1;
+            overlayCommands.push({ command: 'logo_opacity', floatValue: media.logoOpacity });
+            message_text = 'Đã lưu cài đặt logo.';
+        }
+
+        operatorConfig = sanitizeOperatorConfig({ ...operatorConfig, media });
         await writeJsonAtomic(operatorConfigPath, operatorConfig);
         broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
-        broadcastRole('overlay', {
-            type: 'game_control', command: 'music_volume', floatValue: operatorConfig.media.musicVolume
-        });
-        return send(ws, { type: 'operator_saved', message: 'Đã lưu âm lượng nền.' });
+        for (const cmd of overlayCommands) {
+            broadcastRole('overlay', { type: 'game_control', ...cmd });
+        }
+        return send(ws, { type: 'operator_saved', message: message_text });
     }
 
     if (message.type === 'game_control') {
-        const allowedCommands = new Set(['chroma', 'hud', 'feed', 'controls', 'fullscreen', 'background_reload', 'music_reload', 'music_volume', 'reset']);
+        const allowedCommands = new Set(['chroma', 'hud', 'feed', 'controls', 'fullscreen', 'background_reload', 'music_reload', 'music_volume', 'welcome_reload', 'welcome_enabled', 'welcome_volume', 'logo_reload', 'logo_enabled', 'logo_scale', 'logo_opacity', 'reset']);
         const command = String(message.command || '');
         if (!allowedCommands.has(command)) {
             return send(ws, { type: 'error', message: 'Lệnh điều khiển game không hợp lệ.' });
