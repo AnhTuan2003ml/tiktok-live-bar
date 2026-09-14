@@ -341,6 +341,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 }
 .live-connect { display: flex; align-items: flex-end; gap: 10px; min-width: 0; }
 .euler-row { margin-top: 8px; }
+.euler-row[hidden] { display: none !important; }
 .euler-row .live-actions { align-items: center; gap: 8px; }
 .hint-inline { font-weight: 400; color: var(--faint); font-size: 11px; }
 .live-connect .field.compact { gap: 4px; }

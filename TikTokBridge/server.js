@@ -90,6 +90,16 @@ const welcomeSelectedPath = path.join(djSfxDir, 'SELECTED_WELCOME.txt');
 const ttsCacheDir = path.join(djSfxDir, 'tts_cache');
 tts.configure(ttsCacheDir);
 
+// Engine PirateTok (Python): nối thẳng TikTok, không EulerStream, không key.
+const { spawn } = require('node:child_process');
+const fsSync = require('node:fs');
+// Ưu tiên Python nhúng sẵn trong gói (pyengine) để máy khách khỏi cài Python.
+const bundledPython = path.join(__dirname, 'pyengine', 'python.exe');
+const PYTHON_BIN = process.env.PYTHON_BIN
+    || (fsSync.existsSync(bundledPython) ? bundledPython : (process.platform === 'win32' ? 'python' : 'python3'));
+const pirateBridgePath = path.join(__dirname, 'piratetok_bridge.py');
+const PIRATE_CONNECT_TIMEOUT_MS = 25000;
+
 // Nhãn hiển thị đẹp cho các âm thanh báo có sẵn; file lạ thì lấy theo tên.
 const WELCOME_SOUND_LABELS = {
     'welcome.wav': 'Chuông ngân (mặc định)',
@@ -1072,7 +1082,9 @@ function scheduleReconnect(username) {
         ? 'Mất kết nối TikTok trực tiếp'
         : desiredProvider === 'tikfinity'
             ? 'Chưa thấy TikFinity Desktop'
-            : 'Mất kết nối TikTok LIVE';
+            : desiredProvider === 'piratetok'
+                ? 'Mất kết nối PirateTok'
+                : 'Mất kết nối TikTok LIVE';
     setStatus(
         'reconnecting',
         username,
@@ -1089,6 +1101,8 @@ function scheduleReconnect(username) {
 function connectToLiveProvider(username, options = {}) {
     if (options.provider) desiredProvider = normalizeProvider(options.provider);
     switch (desiredProvider) {
+        case 'piratetok':
+            return connectToPirateTok(username, options);
         case 'tikfinity':
             return connectToTikFinity(username, options);
         case 'tiktok':
@@ -1202,6 +1216,130 @@ async function connectToTikFinity(username, options = {}) {
             if (!active()) return;
             liveConnection = null;
             settle({ ok: false, attempt, reason: 'closed' });
+            scheduleReconnect(username);
+        });
+    });
+}
+
+async function connectToPirateTok(username, options = {}) {
+    const resetSession = options.resetSession !== false;
+    const isReconnect = options.isReconnect === true;
+    stopDemo();
+    cancelReconnect();
+    desiredUsername = username;
+    const attempt = ++connectionAttempt;
+    await disconnectCurrentConnection();
+
+    if (resetSession) {
+        resetSessionState('piratetok');
+        broadcast({ type: 'reset' });
+        broadcastMetrics();
+    }
+    setStatus(
+        isReconnect ? 'reconnecting' : 'connecting',
+        username,
+        isReconnect ? `Đang kết nối lại @${username} (PirateTok)...` : `Đang kết nối @${username} (PirateTok, miễn phí)...`
+    );
+
+    let child;
+    try {
+        child = spawn(PYTHON_BIN, [pirateBridgePath, username], { windowsHide: true });
+    } catch (error) {
+        setStatus('error', username, `Không chạy được PirateTok (thiếu Python?): ${error.message}`);
+        return { ok: false, attempt, reason: 'failed' };
+    }
+    // Bọc child thành đối tượng có disconnect() để disconnectCurrentConnection đóng được.
+    const wrapper = { disconnect() { try { child.kill(); } catch { /* bỏ qua */ } } };
+    liveConnection = wrapper;
+    const active = () => attempt === connectionAttempt && liveConnection === wrapper;
+
+    return new Promise(resolve => {
+        let settled = false;
+        const settle = outcome => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(connectTimer);
+            resolve(outcome);
+        };
+        const connectTimer = setTimeout(() => {
+            if (!active()) return settle({ ok: false, attempt, reason: 'superseded' });
+            console.warn('PirateTok không kết nối được trong thời gian chờ.');
+            try { child.kill(); } catch { /* bỏ qua */ }
+            settle({ ok: false, attempt, reason: 'failed' });
+        }, PIRATE_CONNECT_TIMEOUT_MS);
+        connectTimer.unref();
+
+        let buffer = '';
+        const handleLine = line => {
+            const text = line.trim();
+            if (!text) return;
+            let msg;
+            try { msg = JSON.parse(text); } catch { return; }
+            if (msg.__status__ === 'connected') {
+                if (!active()) return;
+                reconnectFailures = 0;
+                cancelReconnect();
+                metrics.source = 'piratetok';
+                setStatus('connected', username, `Đã kết nối @${username} (PirateTok)`);
+                broadcastMetrics();
+                console.log(`Đã kết nối PirateTok cho @${username}`);
+                settle({ ok: true, attempt });
+                return;
+            }
+            if (msg.__error__) {
+                console.warn('PirateTok lỗi:', String(msg.__error__).slice(0, 200));
+                if (!active()) return;
+                setStatus('error', username, `PirateTok: ${String(msg.__error__).slice(0, 160)}`);
+                settle({ ok: false, attempt, reason: 'failed' });
+                return;
+            }
+            if (msg.__status__ === 'ended') {
+                if (!active()) return;
+                liveConnection = null;
+                desiredUsername = null;
+                cancelReconnect();
+                setStatus('ended', username, `Live @${username} đã kết thúc`);
+                return;
+            }
+            if (msg.__status__) return; // trạng thái khác: bỏ qua
+            if (!active()) return;
+            switch (msg.type) {
+                case 'chat': processGameEvent(normalizeChat(msg)); break;
+                case 'member': processGameEvent(normalizeMember(msg)); break;
+                case 'like': processGameEvent(normalizeLike(msg)); break;
+                case 'follow': processGameEvent(normalizeSocial('follow', msg)); break;
+                case 'share': processGameEvent(normalizeSocial('share', msg)); break;
+                case 'gift': {
+                    const event = normalizeGift(msg);
+                    if (!isPendingGiftStreak(event)) processGameEvent(event);
+                    break;
+                }
+                default: break;
+            }
+        };
+        child.stdout.on('data', chunk => {
+            buffer += chunk.toString('utf8');
+            let idx;
+            while ((idx = buffer.indexOf('\n')) >= 0) {
+                handleLine(buffer.slice(0, idx));
+                buffer = buffer.slice(idx + 1);
+            }
+        });
+        child.stderr.on('data', chunk => {
+            const t = chunk.toString('utf8').trim();
+            if (t) console.warn('PirateTok stderr:', t.slice(0, 200));
+        });
+        child.on('error', error => {
+            console.warn('PirateTok spawn error:', error.message);
+            if (!active()) return;
+            setStatus('error', username, `Không chạy được PirateTok: ${error.message}`);
+            settle({ ok: false, attempt, reason: 'failed' });
+        });
+        child.on('close', code => {
+            if (!active()) return settle({ ok: false, attempt, reason: 'superseded' });
+            liveConnection = null;
+            settle({ ok: false, attempt, reason: 'closed' });
+            console.warn(`PirateTok thoát (mã ${code}), sẽ thử kết nối lại.`);
             scheduleReconnect(username);
         });
     });

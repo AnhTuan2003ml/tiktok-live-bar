@@ -1,7 +1,7 @@
 'use strict';
 
-const LIVE_PROVIDERS = ['auto', 'tiktok', 'tikfinity'];
-const DEFAULT_LIVE_PROVIDER = 'auto';
+const LIVE_PROVIDERS = ['piratetok', 'auto', 'tiktok', 'tikfinity'];
+const DEFAULT_LIVE_PROVIDER = 'piratetok';
 
 function normalizeProvider(value) {
     const provider = String(value ?? '').trim().toLowerCase();

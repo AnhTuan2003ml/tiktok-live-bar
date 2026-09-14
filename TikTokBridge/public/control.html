@@ -47,9 +47,10 @@
                     <div class="field compact">
                         <label for="live-provider">Nguồn dữ liệu</label>
                         <select id="live-provider">
-                            <option value="auto">Tự động — ưu tiên Direct</option>
-                            <option value="tiktok">TikTok Direct</option>
+                            <option value="piratetok">PirateTok — Miễn phí</option>
                             <option value="tikfinity">TikFinity Desktop</option>
+                            <option value="tiktok">TikTok Direct — cần EulerStream key</option>
+                            <option value="auto">Tự động (Direct → TikFinity)</option>
                         </select>
                     </div>
                     <div class="field compact grow">
@@ -62,9 +63,10 @@
                     </div>
                 </div>
 
-                <div class="live-connect euler-row">
+                <!-- Chỉ hiện khi chọn nguồn cần EulerStream -->
+                <div class="live-connect euler-row" id="euler-row" hidden>
                     <div class="field compact grow">
-                        <label for="euler-key">EulerStream API key <span class="hint-inline">(cần cho TikTok Direct — dán 1 lần, lưu vào cấu hình)</span></label>
+                        <label for="euler-key">EulerStream API key <span class="hint-inline">(chỉ cần cho TikTok Direct — dán 1 lần, lưu vào cấu hình)</span></label>
                         <input id="euler-key" type="password" autocomplete="off" placeholder="Dán key EulerStream vào đây">
                     </div>
                     <div class="live-actions">

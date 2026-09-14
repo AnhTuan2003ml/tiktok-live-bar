@@ -9,12 +9,13 @@ const {
     normalizeProvider
 } = require('../src/config/provider');
 
-test('exposes exactly the three supported providers', () => {
-    assert.deepEqual(LIVE_PROVIDERS, ['auto', 'tiktok', 'tikfinity']);
-    assert.equal(DEFAULT_LIVE_PROVIDER, 'auto');
+test('exposes the supported providers, PirateTok is the free default', () => {
+    assert.deepEqual(LIVE_PROVIDERS, ['piratetok', 'auto', 'tiktok', 'tikfinity']);
+    assert.equal(DEFAULT_LIVE_PROVIDER, 'piratetok');
 });
 
-test('accepts the three supported providers', () => {
+test('accepts the supported providers', () => {
+    assert.equal(normalizeProvider('piratetok'), 'piratetok');
     assert.equal(normalizeProvider('auto'), 'auto');
     assert.equal(normalizeProvider('tiktok'), 'tiktok');
     assert.equal(normalizeProvider('tikfinity'), 'tikfinity');
@@ -26,10 +27,10 @@ test('is case-insensitive and trims whitespace', () => {
     assert.equal(normalizeProvider('TIKTOK'), 'tiktok');
 });
 
-test('falls back to auto for missing or invalid providers', () => {
-    assert.equal(normalizeProvider(undefined), 'auto');
-    assert.equal(normalizeProvider(null), 'auto');
-    assert.equal(normalizeProvider(''), 'auto');
-    assert.equal(normalizeProvider('whatever'), 'auto');
-    assert.equal(normalizeProvider(123), 'auto');
+test('falls back to the default (piratetok) for missing or invalid providers', () => {
+    assert.equal(normalizeProvider(undefined), 'piratetok');
+    assert.equal(normalizeProvider(null), 'piratetok');
+    assert.equal(normalizeProvider(''), 'piratetok');
+    assert.equal(normalizeProvider('whatever'), 'piratetok');
+    assert.equal(normalizeProvider(123), 'piratetok');
 });
