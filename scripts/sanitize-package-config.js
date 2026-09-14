@@ -30,6 +30,8 @@ function rewriteJson(fileName, transform) {
 
 rewriteJson('operator.json', config => ({
     ...config,
+    // Khoa EulerStream gan voi tung may - moi may tu dan key rieng, khong di theo goi.
+    eulerApiKey: '',
     obs: {
         ...(config.obs || {}),
         host: '127.0.0.1',

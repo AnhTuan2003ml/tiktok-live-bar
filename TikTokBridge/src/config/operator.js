@@ -59,10 +59,14 @@ function sanitizeOperatorConfig(input = {}) {
         logoOpacity: clampFloat(mediaInput.logoOpacity, 0, 1, 1)
     };
 
+    // Khoá ký EulerStream để đọc TikTok Direct; lưu trong cấu hình, không đọc từ .env.
+    const eulerApiKey = String(input.eulerApiKey || '').trim().slice(0, 200);
+
     return {
         spawnEvents,
         obs: { host, port, password, autoConnect },
         media,
+        eulerApiKey,
         recentEventLimit: clampInt(input.recentEventLimit, 50, 500, 200)
     };
 }

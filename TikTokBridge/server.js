@@ -507,7 +507,7 @@ app.post('/api/logo-video', express.raw({ type: 'application/octet-stream', limi
 });
 
 app.get('/api/config', (_req, res) => {
-    res.json({ game: gameConfig, gifts: giftConfig, master: masterConfig, operator: operatorConfig, observedGifts: [...observedGifts.values()] });
+    res.json({ game: gameConfig, gifts: giftConfig, master: masterConfig, operator: publicOperatorConfig(), observedGifts: [...observedGifts.values()] });
 });
 
 app.get('/api/gifs', async (_req, res) => {
@@ -538,7 +538,13 @@ function broadcast(data) {
 // Mật khẩu OBS không được rời khỏi máy chủ: Control Panel có ô nhập riêng,
 // còn ô Operator.json chỉ nên thấy chuỗi rỗng.
 function publicOperatorConfig(config = operatorConfig) {
-    return { ...config, obs: { ...(config.obs || {}), password: '' } };
+    // Không gửi key/mật khẩu thật ra giao diện; chỉ báo đã có hay chưa.
+    return {
+        ...config,
+        obs: { ...(config.obs || {}), password: '' },
+        eulerApiKey: '',
+        eulerApiKeySet: Boolean(config.eulerApiKey)
+    };
 }
 
 function broadcastRole(role, data) {
@@ -1243,7 +1249,8 @@ async function connectToTikTok(username, options = {}) {
     let connection;
     try {
         connection = new TikTokLiveConnection(username, {
-            signApiKey: process.env.EULER_API_KEY || undefined,
+            // Khoá ký lấy từ cấu hình (ô EulerStream key trên Control Panel), không đọc .env.
+            signApiKey: operatorConfig.eulerApiKey || undefined,
             processInitialData: false,
             enableExtendedGiftInfo: false
         });
@@ -1351,6 +1358,7 @@ async function handleClientMessage(ws, message) {
 
     const controlOnly = new Set([
         'master_save', 'master_test', 'operator_save', 'media_settings', 'game_control',
+        'euler_key_save',
         'obs_connect', 'obs_disconnect', 'obs_refresh', 'obs_set_scene',
         'obs_get_sources', 'obs_set_source_visibility', 'obs_capture_game', 'obs_audio_check'
     ]).has(message.type);
@@ -1382,11 +1390,13 @@ async function handleClientMessage(ws, message) {
 
 
     if (message.type === 'operator_save') {
-        // Ô Operator.json không hiển thị mật khẩu, nên gửi lên rỗng nghĩa là "giữ nguyên".
+        // Ô Operator.json không hiển thị mật khẩu/khoá, nên gửi lên rỗng nghĩa là "giữ nguyên".
         const incoming = message.operator || {};
         const keepPassword = !String(incoming.obs?.password || '').trim();
+        const keepEuler = !String(incoming.eulerApiKey || '').trim();
         operatorConfig = sanitizeOperatorConfig({
             ...incoming,
+            eulerApiKey: keepEuler ? (operatorConfig.eulerApiKey || '') : incoming.eulerApiKey,
             obs: {
                 ...(incoming.obs || {}),
                 password: keepPassword ? (operatorConfig.obs?.password || '') : incoming.obs.password
@@ -1396,6 +1406,19 @@ async function handleClientMessage(ws, message) {
         broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
         broadcastMetrics();
         return send(ws, { type: 'operator_saved', message: 'Đã lưu cấu hình vận hành.' });
+    }
+
+    // Lưu/xoá khoá ký EulerStream (dán key từ Control Panel). Rỗng + clear=true để xoá.
+    if (message.type === 'euler_key_save') {
+        const incoming = String(message.eulerApiKey || '').trim();
+        const nextKey = message.clear === true ? '' : (incoming || operatorConfig.eulerApiKey || '');
+        operatorConfig = sanitizeOperatorConfig({ ...operatorConfig, eulerApiKey: nextKey });
+        await writeJsonAtomic(operatorConfigPath, operatorConfig);
+        broadcastRole('control', { type: 'operator_config', operator: publicOperatorConfig() });
+        return send(ws, {
+            type: 'operator_saved',
+            message: nextKey ? 'Đã lưu EulerStream key.' : 'Đã xoá EulerStream key.'
+        });
     }
 
     if (message.type === 'media_settings') {

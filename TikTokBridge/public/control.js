@@ -9,7 +9,7 @@ const state = {
     live: { state: 'idle', username: null, message: 'Chưa kết nối' },
     metrics: { source: 'idle', events: 0, chats: 0, gifts: 0, diamonds: 0, likes: 0, players: 0, eventsPerSecond: 0 },
     master: { joinMode: 'keyword_only', giftAlwaysJoins: true, rules: [] },
-    operator: { spawnEvents: { chat: true, gift: true, like: false, follow: true, share: true, member: false }, obs: { host: '127.0.0.1', port: 4455, password: '', autoConnect: true }, media: { musicVolume: .35, backgroundFile: 'nenamphu.png', audioFile: '', welcomeEnabled: true, welcomeVolume: .6, welcomeFile: 'welcome.wav', welcomeGreeting: 'Chào mừng {ten}', welcomeInterval: 4, welcomeLang: 'vi', logoEnabled: true, logoFile: '', logoScale: .18, logoOpacity: 1 }, recentEventLimit: 200 },
+    operator: { spawnEvents: { chat: true, gift: true, like: false, follow: true, share: true, member: false }, obs: { host: '127.0.0.1', port: 4455, password: '', autoConnect: true }, media: { musicVolume: .35, backgroundFile: 'nenamphu.png', audioFile: '', welcomeEnabled: true, welcomeVolume: .6, welcomeFile: 'welcome.wav', welcomeGreeting: 'Chào mừng {ten}', welcomeInterval: 4, welcomeLang: 'vi', logoEnabled: true, logoFile: '', logoScale: .18, logoOpacity: 1 }, eulerApiKey: '', eulerApiKeySet: false, recentEventLimit: 200 },
     gifts: new Map(),
     recentEvents: [],
     eventFilter: 'all',
@@ -441,6 +441,11 @@ function renderOperator() {
     const logoOpacity = Math.round(Math.max(0, Math.min(1, Number(media.logoOpacity ?? 1))) * 100);
     if ($('#logo-opacity')) $('#logo-opacity').value = String(logoOpacity);
     if ($('#logo-opacity-value')) $('#logo-opacity-value').textContent = `${logoOpacity}%`;
+
+    // EulerStream key: không hiển thị key thật, chỉ báo đã lưu hay chưa.
+    const hasEuler = state.operator.eulerApiKeySet === true;
+    setBadge($('#euler-key-status'), hasEuler ? 'ĐÃ LƯU' : 'CHƯA CÓ', hasEuler ? 'ok' : '');
+    if ($('#euler-key')) $('#euler-key').placeholder = hasEuler ? 'Đã lưu key — dán để đổi key khác' : 'Dán key EulerStream vào đây';
 
     $('#operator-json').value = JSON.stringify(state.operator, null, 2);
 }
@@ -1046,6 +1051,16 @@ $('#connect-live').addEventListener('click', () => {
     send({ type: 'set_username', username, provider: $('#live-provider').value || 'auto' });
 });
 $('#disconnect-live').addEventListener('click', () => send({ type: 'disconnect_tiktok' }));
+
+// Lưu EulerStream key vào cấu hình (không đọc .env nữa).
+$('#euler-save')?.addEventListener('click', () => {
+    const key = ($('#euler-key')?.value || '').trim();
+    if (!key) return toast('Hãy dán EulerStream key trước.', 'error');
+    send({ type: 'euler_key_save', eulerApiKey: key });
+    if ($('#euler-key')) $('#euler-key').value = '';   // không giữ key trên màn hình
+    toast('Đã gửi lưu EulerStream key.', 'success');
+});
+$('#euler-key')?.addEventListener('keydown', event => { if (event.key === 'Enter') $('#euler-save')?.click(); });
 
 $$('.rules-tab').forEach(button => button.addEventListener('click', () => {
     $$('.rules-tab').forEach(item => item.classList.toggle('active', item === button));
