@@ -25,8 +25,7 @@ const ACTIONS = [
 ];
 
 const PROVIDER_HELP = {
-    piratetok: 'PirateTok (miễn phí): nối thẳng TikTok, không cần key, không cần app khác. Chỉ nhập username/link.',
-    tikfinity: 'TikFinity: mở TikFinity Desktop, đăng nhập và kết nối live; app đọc qua cổng 21213.',
+    tikfinity: 'TikFinity: mở TikFinity Desktop, đăng nhập và kết nối live; app đọc qua cổng 21213. Không cần key.',
     tiktok: 'TikTok Direct: cần dán EulerStream API key (gói Business) ở ô bên dưới.',
     auto: 'Tự động thử TikTok Direct (cần key) trước, thất bại thì sang TikFinity.'
 };
@@ -35,7 +34,7 @@ function applyProviderUi(provider) {
     const needKey = provider === 'tiktok' || provider === 'auto';
     const row = document.getElementById('euler-row');
     if (row) row.hidden = !needKey;
-    setText('#provider-help', PROVIDER_HELP[provider] || PROVIDER_HELP.piratetok);
+    setText('#provider-help', PROVIDER_HELP[provider] || PROVIDER_HELP.tikfinity);
 }
 
 function toast(message, type = '') {
@@ -130,7 +129,7 @@ function renderLiveStatus() {
     setText('#live-detail-user', live.username ? `@${live.username}` : '@—');
     setText('#dash-live-user', live.username ? `@${live.username}` : '@—');
     setText('#current-user', live.username ? `@${live.username}` : '@—');
-    const provider = state.metrics.source === 'tiktok' ? 'TikTok Direct' : state.metrics.source === 'piratetok' ? 'PirateTok' : state.metrics.source === 'tikfinity' ? 'TikFinity' : state.metrics.source === 'demo' ? 'Demo' : '—';
+    const provider = state.metrics.source === 'tiktok' ? 'TikTok Direct' : state.metrics.source === 'tikfinity' ? 'TikFinity' : state.metrics.source === 'demo' ? 'Demo' : '—';
     setText('#live-detail-provider', provider);
     setText('#dash-live-provider', live.message || provider);
     const dot = $('#live-status-dot');
@@ -1056,7 +1055,7 @@ $('#music-volume')?.addEventListener('change', saveMusicVolume);
 $('#connect-live').addEventListener('click', () => {
     const { username } = parseTikTokUsername($('#username').value);
     if (!username) return toast('Nhập username hoặc link TikTok LIVE hợp lệ.', 'error');
-    send({ type: 'set_username', username, provider: $('#live-provider').value || 'piratetok' });
+    send({ type: 'set_username', username, provider: $('#live-provider').value || 'tikfinity' });
 });
 $('#disconnect-live').addEventListener('click', () => send({ type: 'disconnect_tiktok' }));
 
@@ -1134,7 +1133,7 @@ $('#save-operator-json').addEventListener('click', () => {
     catch { toast('JSON Operator không hợp lệ.', 'error'); }
 });
 
-applyProviderUi($('#live-provider')?.value || 'piratetok');
+applyProviderUi($('#live-provider')?.value || 'tikfinity');
 updateUsernameHint();
 renderLiveStatus();
 renderMetrics();
